@@ -38,6 +38,7 @@ from utils.email import (
     password_reset_email_html,
     get_public_api_url,
 )
+from utils.time import as_utc
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -134,11 +135,6 @@ def _clean_name(name: str) -> str:
 
 def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-
-
-def _as_utc(dt: datetime) -> datetime:
-    """SQLite returns naive datetimes; treat stored values as UTC."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _new_token() -> str:
@@ -311,7 +307,7 @@ async def verify_email(request: Request, token: str = Query("")):
             user = found.scalar_one_or_none()
             if user:
                 expires_at = user.verification_token_expires_at
-                if expires_at is None or _as_utc(expires_at) < datetime.now(timezone.utc):
+                if expires_at is None or as_utc(expires_at) < datetime.now(timezone.utc):
                     status = "expired"
                 else:
                     await mark_email_verified(db, user)
@@ -368,7 +364,7 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
         )
         user = found.scalar_one_or_none()
         expires_at = user.reset_token_expires_at if user else None
-        if not user or expires_at is None or _as_utc(expires_at) < datetime.now(timezone.utc):
+        if not user or expires_at is None or as_utc(expires_at) < datetime.now(timezone.utc):
             raise HTTPException(400, "This reset link is invalid or has expired. Please request a new one.")
         new_password_hash = await run_in_threadpool(_hash_password, payload.new_password)
         await set_user_password(db, user, new_password_hash)

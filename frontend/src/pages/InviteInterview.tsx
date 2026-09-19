@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { InterviewAgent } from '@/components/voice/InterviewAgent'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
-import { initials } from '@/lib/dashboard-utils'
+import { initials, formatDateTime, isExpired } from '@/lib/dashboard-utils'
 import '@/styles/aura-pre.css'
 
 type Step = 'PREVIEW' | 'INTERVIEW'
@@ -24,6 +24,9 @@ export function InviteInterview() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Bumped by the expiry timer below; without it a preview loaded before
+  // expiry keeps saying "This link expires …" until some other re-render.
+  const [, setExpiryTick] = useState(0)
 
   // Remember where to come back to after sign-in / role picking
   useEffect(() => {
@@ -49,6 +52,17 @@ export function InviteInterview() {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [user, token])
+
+  // A preview loaded before expiry never refetches on its own; flip the expiry
+  // copy and disable Start the moment the deadline passes. Beyond setTimeout's
+  // ~24.8-day ceiling (links can run 30 days) just skip the timer — a start
+  // click still fails with the server's 410 toast.
+  useEffect(() => {
+    const ms = preview?.expires_at ? new Date(preview.expires_at).getTime() - Date.now() : 0
+    if (ms <= 0 || ms > 2 ** 31 - 1) return
+    const timer = setTimeout(() => setExpiryTick(t => t + 1), ms + 1000)
+    return () => clearTimeout(timer)
+  }, [preview])
 
   const begin = async () => {
     if (!token || !preview) return
@@ -169,8 +183,20 @@ export function InviteInterview() {
               {preview.questions.map((q, i) => <li key={i}>{q}</li>)}
             </ol>
 
+            {preview.expires_at && (
+              <p style={{ marginTop: 12, fontSize: 12, opacity: isExpired(preview.expires_at) ? 0.85 : 0.6 }}>
+                {isExpired(preview.expires_at)
+                  ? 'This link has expired — ask your recruiter for a fresh one.'
+                  : `This link expires ${formatDateTime(preview.expires_at)}.`}
+              </p>
+            )}
+
             <div className="btn-row" style={{ marginTop: 22 }}>
-              <button className="btn btn-primary" onClick={begin} disabled={starting}>
+              <button
+                className="btn btn-primary"
+                onClick={begin}
+                disabled={starting || isExpired(preview.expires_at)}
+              >
                 {starting ? <><span className="spinner" /> Preparing…</> : (
                   <>
                     Start voice interview

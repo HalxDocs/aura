@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { createInvite, type InviteOut } from '@/api/client'
+import { apiErrorMessage, createInvite, type InviteOut } from '@/api/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { initials } from '@/lib/dashboard-utils'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
-import axios from 'axios'
 import '@/styles/aura-pre.css'
 
 const MIN_QUESTIONS = 2
@@ -49,10 +48,11 @@ export function InviteBuilder() {
       })
       setCreated(invite)
     } catch (error) {
-      const detail = axios.isAxiosError(error)
-        ? (error.response?.data?.detail as string | undefined) ?? 'Could not create the interview.'
-        : 'Could not create the interview.'
-      toast({ title: 'Creation failed', description: detail, variant: 'destructive' })
+      toast({
+        title: 'Creation failed',
+        description: apiErrorMessage(error, 'Could not create the interview.'),
+        variant: 'destructive',
+      })
     } finally {
       setCreating(false)
     }

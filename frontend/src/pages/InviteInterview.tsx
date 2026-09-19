@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { getInvitePreview, startInvite, getToken, type InvitePreview as InvitePreviewData, type InterviewPlan } from '@/api/client'
+import { apiErrorMessage, getInvitePreview, startInvite, getToken, type InvitePreview as InvitePreviewData, type InterviewPlan } from '@/api/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { InterviewAgent } from '@/components/voice/InterviewAgent'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import { initials } from '@/lib/dashboard-utils'
-import axios from 'axios'
 import '@/styles/aura-pre.css'
 
 type Step = 'PREVIEW' | 'INTERVIEW'
@@ -45,10 +44,7 @@ export function InviteInterview() {
       .then(data => { if (!cancelled) setPreview(data) })
       .catch(err => {
         if (cancelled) return
-        const detail = axios.isAxiosError(err)
-          ? (err.response?.data?.detail as string | undefined)
-          : undefined
-        setError(detail || 'This invite link is not available.')
+        setError(apiErrorMessage(err, 'This invite link is not available.'))
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -66,12 +62,9 @@ export function InviteInterview() {
       setLivekitToken(t)
       setStep('INTERVIEW')
     } catch (err) {
-      const detail = axios.isAxiosError(err)
-        ? (err.response?.data?.detail as string | undefined)
-        : undefined
       toast({
         title: 'Could not start the interview',
-        description: detail || 'Please try again in a moment.',
+        description: apiErrorMessage(err, 'Please try again in a moment.'),
         variant: 'destructive',
       })
     } finally {

@@ -54,6 +54,34 @@ class TestJWT:
         assert payload["name"] == "Test User"
         assert "exp" in payload
 
+    @pytest.mark.asyncio
+    async def test_current_user_rejects_token_without_sub(self):
+        """A forged token that decodes but lacks a 'sub' claim is 401, not 500."""
+        from datetime import datetime, timedelta, timezone
+
+        import jwt as pyjwt
+        from fastapi import HTTPException, Request
+        from api.deps import get_current_user
+        from utils.config import JWT_SECRET
+
+        token = pyjwt.encode(
+            {"email": "forged@example.com", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+            JWT_SECRET,
+            algorithm="HS256",
+        )
+        request = Request(
+            scope={
+                "type": "http",
+                "method": "GET",
+                "path": "/",
+                "headers": [(b"authorization", f"Bearer {token}".encode())],
+            }
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(request)
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Invalid token"
+
 
 class TestCRUD:
     @pytest.mark.asyncio

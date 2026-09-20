@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
 from typing import List, Literal, Optional
 from datetime import datetime
 import json
+import re
 
 class InterviewPlan(BaseModel):
     candidate_name: str = Field(description="The name of the candidate extracted from the resume.")
@@ -218,6 +219,8 @@ class InvitePreview(BaseModel):
     recruiter_name: str
     # When the link stops working, so candidates know they shouldn't wait.
     expires_at: Optional[datetime] = None
+    # Company branding from the recruiter's profile, when set
+    recruiter_company: Optional[str] = None
 
 
 class InviteStartResponse(BaseModel):
@@ -225,3 +228,354 @@ class InviteStartResponse(BaseModel):
 
     session_id: str
     plan: InterviewPlan
+
+
+# --- Candidate / recruiter profiles ------------------------------------------
+
+
+class ExperienceEntry(BaseModel):
+    """One position on the candidate profile, job-board style."""
+
+    title: str = Field(min_length=1, max_length=120, description="Job title.")
+    company: str = Field(min_length=1, max_length=120, description="Company or employer.")
+    start: str = Field(default="", max_length=40, description="e.g. '2022-03' or 'Spring 2022'.")
+    end: str = Field(default="", max_length=40, description="Empty or 'Present' for current roles.")
+    description: str = Field(default="", max_length=2000)
+
+    @field_validator("title", "company")
+    @classmethod
+    def _clean_required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Title and company must not be empty.")
+        return value
+
+    @field_validator("start", "end", "description")
+    @classmethod
+    def _clean_free(cls, value: str) -> str:
+        return value.strip()
+
+
+class EducationEntry(BaseModel):
+    """One school/program on the candidate profile."""
+
+    school: str = Field(min_length=1, max_length=160)
+    degree: str = Field(default="", max_length=160)
+    field: str = Field(default="", max_length=160)
+    start: str = Field(default="", max_length=40)
+    end: str = Field(default="", max_length=40)
+
+    @field_validator("school")
+    @classmethod
+    def _clean_school(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("School must not be empty.")
+        return value
+
+    @field_validator("degree", "field", "start", "end")
+    @classmethod
+    def _clean_free(cls, value: str) -> str:
+        return value.strip()
+
+
+def _clean_str_list(max_items: int, max_len: int, what: str):
+    """Validator factory for string-list fields (skills)."""
+
+    def _validate(value: List[str]) -> List[str]:
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError(f"Each {what} entry must be a string.")
+            item = item.strip()
+            if not item:
+                continue
+            if len(item) > max_len:
+                raise ValueError(f"Each {what} entry must be {max_len} characters or fewer.")
+            cleaned.append(item)
+        if len(cleaned) > max_items:
+            raise ValueError(f"At most {max_items} {what} allowed.")
+        return cleaned
+
+    return _validate
+
+
+def _clean_entry_list(model_cls, max_items: int, what: str):
+    """Validator factory for entry-list fields (experience, education)."""
+
+    def _validate(value) -> list:
+        if len(value) > max_items:
+            raise ValueError(f"At most {max_items} {what} allowed.")
+        return list(value)
+
+    return _validate
+
+
+class CandidateProfileIn(BaseModel):
+    """Updatable candidate profile fields (PUT /profile/candidate body)."""
+
+    headline: str = Field(default="", max_length=200)
+    location: str = Field(default="", max_length=120)
+    summary: str = Field(default="", max_length=4000)
+    skills: List[str] = Field(default_factory=list, max_length=30)
+    experience: List[ExperienceEntry] = Field(default_factory=list, max_length=15)
+    education: List[EducationEntry] = Field(default_factory=list, max_length=15)
+    linkedin_url: Optional[str] = Field(default=None, max_length=512)
+    github_url: Optional[str] = Field(default=None, max_length=512)
+    portfolio_url: Optional[str] = Field(default=None, max_length=512)
+
+    @field_validator("headline", "location", "summary")
+    @classmethod
+    def _clean_free_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("skills")
+    @classmethod
+    def _clean_skills(cls, value: List[str]) -> List[str]:
+        return _clean_str_list(30, 60, "skills")(value)
+
+    @field_validator("experience")
+    @classmethod
+    def _clean_experience(cls, value: List[ExperienceEntry]) -> List[ExperienceEntry]:
+        return _clean_entry_list(ExperienceEntry, 15, "experience entries")(value)
+
+    @field_validator("education")
+    @classmethod
+    def _clean_education(cls, value: List[EducationEntry]) -> List[EducationEntry]:
+        return _clean_entry_list(EducationEntry, 15, "education entries")(value)
+
+    @field_validator("linkedin_url", "github_url", "portfolio_url")
+    @classmethod
+    def _clean_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if not re.match(r"^https?://", value, flags=re.IGNORECASE):
+            raise ValueError("Links must start with http:// or https://")
+        return value[:512]
+
+
+class CandidateProfileOut(BaseModel):
+    """Candidate profile as returned by GET /profile/candidate."""
+
+    headline: str = ""
+    location: str = ""
+    summary: str = ""
+    skills: List[str] = Field(default_factory=list)
+    experience: List[ExperienceEntry] = Field(default_factory=list)
+    education: List[EducationEntry] = Field(default_factory=list)
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    resume_stored: bool = False
+    resume_uploaded_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row) -> "CandidateProfileOut":
+        """Build from a CandidateProfile ORM row (JSON columns parsed here)."""
+
+        def _load(name: str) -> list:
+            raw = getattr(row, name, None)
+            if not raw:
+                return []
+            try:
+                data = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return []
+            # Shape guard: a corrupt row (e.g. a bare JSON string) must
+            # degrade to an empty list, not fail list validation and 500
+            # every future GET — same goal as _entries' per-item skip.
+            return data if isinstance(data, list) else []
+
+        def _entries(name: str, model_cls) -> list:
+            # Validate every stored entry, but skip the ones that fail: a
+            # corrupt or pre-fix row (e.g. a required field left empty by an
+            # older sanitizer) must degrade to a missing entry, not turn
+            # every future GET of this profile into a 500.
+            out = []
+            for e in _load(name):
+                if not isinstance(e, dict):
+                    continue
+                try:
+                    out.append(model_cls.model_validate(e))
+                except ValidationError:
+                    continue
+            return out
+
+        return cls(
+            headline=row.headline,
+            location=row.location,
+            summary=row.summary,
+            skills=[s for s in _load("skills_json") if isinstance(s, str)],
+            experience=_entries("experience_json", ExperienceEntry),
+            education=_entries("education_json", EducationEntry),
+            linkedin_url=row.linkedin_url,
+            github_url=row.github_url,
+            portfolio_url=row.portfolio_url,
+            resume_stored=row.resume_stored,
+            resume_uploaded_at=row.resume_uploaded_at,
+        )
+
+
+class RecruiterProfileIn(BaseModel):
+    """Updatable recruiter profile fields (PUT /profile/recruiter body)."""
+
+    company_name: str = Field(default="", max_length=200)
+    job_title: str = Field(default="", max_length=120)
+    company_website: Optional[str] = Field(default=None, max_length=512)
+    company_location: str = Field(default="", max_length=120)
+
+    @field_validator("company_name", "job_title", "company_location")
+    @classmethod
+    def _clean_free_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("company_website")
+    @classmethod
+    def _clean_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if not re.match(r"^https?://", value, flags=re.IGNORECASE):
+            raise ValueError("The website must start with http:// or https://")
+        return value[:512]
+
+
+class RecruiterProfileOut(BaseModel):
+    """Recruiter profile as returned by GET /profile/recruiter."""
+
+    company_name: str = ""
+    job_title: str = ""
+    company_website: Optional[str] = None
+    company_location: str = ""
+
+
+class ParsedExperienceEntry(BaseModel):
+    """LLM-facing variant of ExperienceEntry: every string field truncates to
+    the profile caps instead of failing validation.
+
+    pydantic-ai retries ValidationError and ultimately discards the whole
+    parsed profile, so one over-long field must never fail the model — a
+    truncated description still autofills the form, a failed parse fills
+    nothing. Missing keys default to empty; rows missing a required field are
+    dropped by ParsedResumeProfile._drop_unusable_entries.
+    """
+
+    title: str = ""
+    company: str = ""
+    start: str = ""
+    end: str = ""
+    description: str = ""
+
+    @field_validator("title", "company")
+    @classmethod
+    def _truncate_120(cls, value: str) -> str:
+        return value[:120]
+
+    @field_validator("start", "end")
+    @classmethod
+    def _truncate_40(cls, value: str) -> str:
+        return value[:40]
+
+    @field_validator("description")
+    @classmethod
+    def _truncate_2000(cls, value: str) -> str:
+        return value[:2000]
+
+
+class ParsedEducationEntry(BaseModel):
+    """LLM-facing variant of EducationEntry — see ParsedExperienceEntry."""
+
+    school: str = ""
+    degree: str = ""
+    field: str = ""
+    start: str = ""
+    end: str = ""
+
+    @field_validator("school", "degree", "field")
+    @classmethod
+    def _truncate_160(cls, value: str) -> str:
+        return value[:160]
+
+    @field_validator("start", "end")
+    @classmethod
+    def _truncate_40(cls, value: str) -> str:
+        return value[:40]
+
+
+# Caps for ParsedResumeProfile's own optional strings — mirror the Field
+# constraints on CandidateProfileIn so nothing over-long reaches storage.
+_PARSED_STRING_CAPS = {
+    "headline": 200,
+    "location": 120,
+    "summary": 4000,
+    "linkedin_url": 512,
+    "github_url": 512,
+    "portfolio_url": 512,
+}
+
+
+class ParsedResumeProfile(BaseModel):
+    """Structured profile fields extracted from a resume by the profile parser agent.
+
+    Only the fields the model could find are set; the frontend prefills the
+    form's empty fields with these and leaves filled fields untouched.
+
+    Lenient by design: the model's output is truncated to the profile caps and
+    capped in list length rather than rejected (see ParsedExperienceEntry) —
+    the prompt states the limits, and the schema is the safety net.
+    """
+
+    headline: Optional[str] = None
+    location: Optional[str] = None
+    summary: Optional[str] = None
+    skills: List[str] = Field(default_factory=list)
+    experience: List[ParsedExperienceEntry] = Field(default_factory=list)
+    education: List[ParsedEducationEntry] = Field(default_factory=list)
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+
+    @field_validator("headline", "location", "summary", "linkedin_url", "github_url", "portfolio_url", mode="before")
+    @classmethod
+    def _truncate(cls, value, info):
+        if isinstance(value, str):
+            cap = _PARSED_STRING_CAPS.get(info.field_name or "")
+            if cap is not None:
+                return value[:cap]
+        return value
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def _truncate_skills(cls, value):
+        """Cap the list like _clean_str_list does on the write path — but
+        truncate instead of raising, and drop non-string junk."""
+        if not isinstance(value, list):
+            return value
+        out = []
+        for item in value:
+            if len(out) >= 30:
+                break
+            if isinstance(item, str) and item.strip():
+                out.append(item.strip()[:60])
+        return out
+
+    @model_validator(mode="after")
+    def _drop_unusable_entries(self):
+        """Rows missing a required field are junk the model half-invented
+        (its instructions say to omit them) — drop instead of failing the
+        parse, mirroring the read-side skip in CandidateProfileOut.from_row."""
+        self.experience = [e for e in self.experience if e.title.strip() and e.company.strip()]
+        self.education = [e for e in self.education if e.school.strip()]
+        return self
+
+
+class ResumeParseResponse(BaseModel):
+    """Result of POST /profile/candidate/resume: parsed fields for review, not saved."""
+
+    parsed: ParsedResumeProfile
+    resume_stored: bool = True

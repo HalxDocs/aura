@@ -2,7 +2,14 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, desc, func, update, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.models import User, OAuthIdentity, InterviewSession, InterviewInvite
+from db.models import (
+    User,
+    OAuthIdentity,
+    InterviewSession,
+    InterviewInvite,
+    CandidateProfile,
+    RecruiterProfile,
+)
 from utils.time import as_utc
 
 
@@ -254,12 +261,20 @@ async def list_all_sessions(
 
 
 async def set_user_role(db: AsyncSession, user_id: str, role: str) -> User | None:
-    """Set a user's role (candidate/recruiter role picker). Admins are excluded upstream."""
+    """Set a user's role (candidate/recruiter role picker). Admins are excluded upstream.
+
+    ``role`` records the last-picked starting mode. Choosing ``recruiter``
+    additionally grants the one-way ``is_recruiter`` capability; choosing
+    ``candidate`` later never revokes it, so a dual-role user can always get
+    back to recruiter mode.
+    """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         return None
     user.role = role
+    if role == "recruiter":
+        user.is_recruiter = True
     await db.commit()
     await db.refresh(user)
     return user
@@ -453,3 +468,70 @@ async def complete_invite_by_session(db: AsyncSession, session_id: str) -> None:
         invite.status = "completed"
         invite.completed_at = datetime.now(timezone.utc)
         await db.commit()
+
+
+# --- Profiles (one row per user, created lazily on first save) -----------------
+
+
+async def get_candidate_profile(db: AsyncSession, user_id: str) -> CandidateProfile | None:
+    result = await db.execute(
+        select(CandidateProfile).where(CandidateProfile.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _upsert_profile_row(db: AsyncSession, model_cls, user_id: str, **fields):
+    """Create or update a 1:1 profile row, safe against concurrent creation.
+
+    Two concurrent upserts (double-click Save, two tabs) can both see no row
+    and both INSERT; the loser hits the unique ``user_id`` constraint and,
+    like the OAuth callback race in ``get_or_create_user_by_oauth``, rolls
+    back and re-selects the winning row instead of surfacing a 500.
+    """
+    result = await db.execute(select(model_cls).where(model_cls.user_id == user_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        profile = model_cls(user_id=user_id, **fields)
+        db.add(profile)
+    else:
+        for key, value in fields.items():
+            setattr(profile, key, value)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        result = await db.execute(select(model_cls).where(model_cls.user_id == user_id))
+        winner = result.scalar_one_or_none()
+        if winner is None:
+            # Not a creation race (e.g. a violated FK) — surface it.
+            raise
+        profile = winner
+        for key, value in fields.items():
+            setattr(profile, key, value)
+        await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def upsert_candidate_profile(
+    db: AsyncSession, user_id: str, **fields
+) -> CandidateProfile:
+    """Create or update the candidate profile from validated schema fields.
+
+    Callers pass already-serialized lists (skills_json=... etc.); this keeps
+    the ORM layer ignorant of the JSON schema shape.
+    """
+    return await _upsert_profile_row(db, CandidateProfile, user_id, **fields)
+
+
+async def get_recruiter_profile(db: AsyncSession, user_id: str) -> RecruiterProfile | None:
+    result = await db.execute(
+        select(RecruiterProfile).where(RecruiterProfile.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def upsert_recruiter_profile(
+    db: AsyncSession, user_id: str, **fields
+) -> RecruiterProfile:
+    return await _upsert_profile_row(db, RecruiterProfile, user_id, **fields)

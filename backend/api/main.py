@@ -1,7 +1,6 @@
 import uuid
 import os
 import json
-import re
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -36,10 +35,12 @@ from models.schemas import (
     InviteStartResponse,
     RecruiterInvitesResponse,
 )
-from api.deps import get_current_user, require_admin
+from api.deps import get_current_user, require_admin, require_recruiter
 from api.error_handlers import register_error_handlers
 from api.rate_limit import limiter
 from api.auth import router as auth_router
+from api.profiles import router as profiles_router
+from api.uploads import read_upload_capped
 from utils.time import as_utc
 from db.crud import (
     create_session,
@@ -58,6 +59,7 @@ from db.crud import (
     redeem_invite,
     release_invite_claim,
     complete_invite_by_session,
+    get_recruiter_profile,
     CLAIMED,
     ALREADY_CLAIMED,
     CANCELLED,
@@ -195,6 +197,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 register_error_handlers(app)
 
 app.include_router(auth_router)
+app.include_router(profiles_router)
 
 # Add CORS middleware
 if ENVIRONMENT == "production":
@@ -226,25 +229,9 @@ app.add_middleware(
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (~25 min of opus audio)
 
-
-def sanitize_name(name: str) -> str:
-    if not isinstance(name, str):
-        return "Unknown"
-    name = re.sub(r'<(script|style|iframe|object|embed)[^>]*>.*?</\1>', '', name, flags=re.IGNORECASE | re.DOTALL)
-    name = re.sub(r'<(script|style|iframe|object|embed)[^>]*>.*', '', name, flags=re.IGNORECASE | re.DOTALL)
-    name = re.sub(r'<[^>]+>', '', name)
-    name = name[:100]
-    name = re.sub(r'\s+', ' ', name).strip()
-    return name or "Unknown"
-
-
-def sanitize_text(text: str, max_length: int) -> str:
-    """Strip HTML tags and cap length for free-text inputs (job descriptions, etc.)."""
-    if not isinstance(text, str):
-        return ""
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text[:max_length]
+# Free-text sanitizers moved to utils.text so the profiles router can share
+# them; re-exported here for backwards-compatible imports (tests, callers).
+from utils.text import sanitize_name, sanitize_text  # noqa: E402, F401
 
 
 async def can_access_session(session, user) -> bool:
@@ -256,11 +243,6 @@ async def can_access_session(session, user) -> bool:
     async with async_session() as db:
         invite = await get_invite_by_session(db, session.id)
     return bool(invite and invite.recruiter_id == user.id)
-
-
-def require_recruiter(user) -> None:
-    if getattr(user, "role", None) not in ("recruiter", "admin"):
-        raise HTTPException(status_code=403, detail="Recruiter access required")
 
 
 @app.post("/upload", response_model=UploadResponse)
@@ -275,7 +257,7 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     try:
-        file_bytes = await file.read()
+        file_bytes = await read_upload_capped(file, MAX_PDF_SIZE, "PDF exceeds 10 MB limit")
         text = await extract_text_from_pdf(file_bytes)
         jd = sanitize_text(job_description, 4000)
 
@@ -506,9 +488,7 @@ async def upload_pdf(
     if user.role != "admin" and session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    pdf_bytes = await file.read()
-    if len(pdf_bytes) > MAX_PDF_SIZE:
-        raise HTTPException(status_code=413, detail="PDF exceeds 10 MB limit")
+    pdf_bytes = await read_upload_capped(file, MAX_PDF_SIZE, "PDF exceeds 10 MB limit")
     background_tasks.add_task(archive_pdf, session_id, session.candidate_name, pdf_bytes)
     return {"status": "success"}
 
@@ -814,6 +794,7 @@ async def get_invite_preview(request: Request, token: str, user=Depends(get_curr
         ):
             raise HTTPException(status_code=410, detail="This interview link has expired.")
         recruiter = await get_user_by_id(db, invite.recruiter_id)
+        recruiter_profile = await get_recruiter_profile(db, invite.recruiter_id)
 
     return InvitePreview(
         title=invite.title,
@@ -825,6 +806,7 @@ async def get_invite_preview(request: Request, token: str, user=Depends(get_curr
         # must not see a stale "link has expired" banner above a working
         # Start button, so the past timestamp is withheld from them.
         expires_at=invite.expires_at if invite.candidate_user_id is None else None,
+        recruiter_company=(recruiter_profile.company_name if recruiter_profile else "") or None,
     )
 
 
@@ -936,9 +918,7 @@ async def upload_interview_audio(
         raise HTTPException(status_code=403, detail="Access denied")
 
     ext = "mp4" if (file.filename or "").lower().endswith(".mp4") else "webm"
-    audio_bytes = await file.read()
-    if len(audio_bytes) > MAX_AUDIO_SIZE:
-        raise HTTPException(status_code=413, detail="Audio exceeds 25 MB limit")
+    audio_bytes = await read_upload_capped(file, MAX_AUDIO_SIZE, "Audio exceeds 25 MB limit")
     if len(audio_bytes) == 0:
         raise HTTPException(status_code=400, detail="Empty audio file")
 

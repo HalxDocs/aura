@@ -1,4 +1,5 @@
 from api.main import sanitize_name
+from utils.text import sanitize_rich_text
 
 
 def test_sanitize_strips_script_content():
@@ -29,3 +30,11 @@ def test_sanitize_strips_style_tags():
 
 def test_sanitize_non_string_returns_unknown():
     assert sanitize_name(None) == "Unknown"
+
+
+def test_rich_text_uncapped_when_max_length_none():
+    """max_length=None sanitizes without truncating — for callers that
+    sanitize first and apply their own field cap afterwards."""
+    text = "<b>Hello</b> " + "x" * 5000
+    assert sanitize_rich_text(text, None) == "Hello " + "x" * 5000
+    assert sanitize_rich_text(text, 10) == "Hello xxxxx"[:10]

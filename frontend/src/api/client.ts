@@ -76,8 +76,8 @@ export const getToken = async (sessionId: string): Promise<string> => {
   return response.data.token;
 };
 
-export const getPlan = async (sessionId: string): Promise<InterviewPlan> => {
-  const response = await api.get<InterviewPlan>(`/plan/${sessionId}`);
+export const getPlan = async (sessionId: string): Promise<{ plan: InterviewPlan; user_id: string; user_email: string }> => {
+  const response = await api.get<{ plan: InterviewPlan; user_id: string; user_email: string }>(`/plan/${sessionId}`);
   return response.data;
 };
 
@@ -160,7 +160,9 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'candidate';
+  role: 'admin' | 'candidate' | 'recruiter' | '';
+  /** One-way recruiter capability — a dual-role user keeps it when picking candidate mode. */
+  is_recruiter?: boolean;
   avatar_url?: string | null;
 }
 
@@ -179,7 +181,11 @@ export const apiErrorMessage = (error: unknown, fallback = 'Something went wrong
     if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
       const fieldErrors = Array.isArray(detail.errors)
         ? detail.errors
-            .map((e: { field?: string; message?: string }) => (e?.field ? `${e.field}: ${e.message}` : e?.message))
+            // pydantic v2 prefixes validator ValueErrors with "Value error, " — drop it
+            .map((e: { field?: string; message?: string }) => {
+              const message = (e?.message ?? '').replace(/^Value error,\s*/, '')
+              return e?.field ? `${e.field}: ${message}` : message
+            })
             .filter(Boolean)
             .slice(0, 3)
         : [];
@@ -259,6 +265,7 @@ export interface InvitePreview {
   questions: string[];
   recruiter_name: string;
   expires_at: string | null;
+  recruiter_company?: string | null;
 }
 
 export interface InviteStartResponse {
@@ -310,8 +317,102 @@ export const uploadAudio = async (sessionId: string, blob: Blob, ext: 'webm' | '
   await api.post(`/audio/${sessionId}`, formData);
 };
 
-export const setUserRole = async (role: 'candidate' | 'recruiter'): Promise<{ token: string; user: { id: string; email: string; name: string; role: string; avatar_url?: string | null } }> => {
+export const setUserRole = async (role: 'candidate' | 'recruiter'): Promise<LoginResponse> => {
   const response = await api.post('/auth/role', { role });
+  return response.data;
+};
+
+// ---------------------------------------------------------------- Profiles
+
+export interface ExperienceEntry {
+  title: string;
+  company: string;
+  start: string;
+  end: string;
+  description: string;
+}
+
+export interface EducationEntry {
+  school: string;
+  degree: string;
+  field: string;
+  start: string;
+  end: string;
+}
+
+export interface CandidateProfile {
+  headline: string;
+  location: string;
+  summary: string;
+  skills: string[];
+  experience: ExperienceEntry[];
+  education: EducationEntry[];
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  resume_stored: boolean;
+  resume_uploaded_at: string | null;
+}
+
+export interface ParsedResumeProfile {
+  headline: string | null;
+  location: string | null;
+  summary: string | null;
+  skills: string[];
+  experience: ExperienceEntry[];
+  education: EducationEntry[];
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+}
+
+export interface ResumeParseResponse {
+  parsed: ParsedResumeProfile;
+  resume_stored: boolean;
+}
+
+export interface RecruiterProfile {
+  company_name: string;
+  job_title: string;
+  company_website: string | null;
+  company_location: string;
+}
+
+export const getCandidateProfile = async (): Promise<CandidateProfile> => {
+  const response = await api.get<CandidateProfile>('/profile/candidate');
+  return response.data;
+};
+
+export const saveCandidateProfile = async (payload: Omit<CandidateProfile, 'resume_stored' | 'resume_uploaded_at'>): Promise<CandidateProfile> => {
+  const response = await api.put<CandidateProfile>('/profile/candidate', payload);
+  return response.data;
+};
+
+/** Upload a resume PDF; returns parsed fields for review (nothing is auto-saved). */
+export const uploadProfileResume = async (file: File): Promise<ResumeParseResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<ResumeParseResponse>('/profile/candidate/resume', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const getRecruiterProfile = async (): Promise<RecruiterProfile> => {
+  const response = await api.get<RecruiterProfile>('/profile/recruiter');
+  return response.data;
+};
+
+export const saveRecruiterProfile = async (payload: RecruiterProfile): Promise<RecruiterProfile> => {
+  const response = await api.put<RecruiterProfile>('/profile/recruiter', payload);
+  return response.data;
+};
+
+/** Start a practice interview from the resume already on the profile. */
+export const startInterviewFromProfile = async (): Promise<UploadResponse> => {
+  const response = await api.post<UploadResponse>('/profile/candidate/interview');
   return response.data;
 };
 

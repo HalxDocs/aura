@@ -86,12 +86,21 @@ export const getReport = async (sessionId: string): Promise<FinalReport> => {
   return response.data;
 };
 
-export const downloadArtifact = async (sessionId: string, fileType: 'pdf' | 'transcript'): Promise<void> => {
+export const downloadArtifact = async (
+  sessionId: string,
+  fileType: 'pdf' | 'transcript',
+  candidateName?: string,
+): Promise<void> => {
   const response = await api.get(`/download/${sessionId}/${fileType}`, { responseType: 'blob' });
   const url = URL.createObjectURL(response.data);
   const link = document.createElement('a');
   link.href = url;
-  link.download = fileType === 'pdf' ? 'report.pdf' : 'transcript.json';
+  // Recruiters download several reports at once — prefix with the candidate
+  // name so the files don't collide into report.pdf / transcript.json.
+  const ext = fileType === 'pdf' ? 'pdf' : 'json';
+  const label = fileType === 'pdf' ? 'report' : 'transcript';
+  const slug = candidateName?.replace(/\s+/g, '-').toLowerCase();
+  link.download = slug ? `aura-${label}-${slug}.${ext}` : `${label}.${ext}`;
   document.body.appendChild(link);
   link.click();
   link.remove();

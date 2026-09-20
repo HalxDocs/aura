@@ -126,7 +126,7 @@ export function CandidateSessionReport() {
     if (!sessionId) return
     setDownloadError(null)
     try {
-      await downloadArtifact(sessionId, fileType)
+      await downloadArtifact(sessionId, fileType, data?.candidate_name ?? undefined)
     } catch {
       setDownloadError(`Could not download the ${fileType === 'pdf' ? 'PDF report' : 'transcript'}. Please try again.`)
     }

@@ -4,6 +4,7 @@ import httpx
 import sys
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 # Add the backend directory to sys.path to allow running as a script
@@ -101,6 +102,26 @@ _langfuse_provider = setup_langfuse()
 
 _report_lock = asyncio.Lock()
 
+# Grace period after a failed room close before the worker tears the job down
+# itself (the hard-cap timer is already gone by then).
+_CLOSE_FALLBACK_SECONDS = 60
+
+
+def assistant_transcript_text(item) -> str:
+    """Return the spoken text of an assistant chat item, or "" for anything else.
+
+    ChatMessage.content parts are plain strings in livekit-agents >= 1.5, and
+    ``text_content`` is the SDK helper that joins them. The previous per-part
+    ``hasattr(part, "text")`` check never matched a str, so every interviewer
+    line was dropped and stored transcripts held only the candidate's side.
+    """
+    if getattr(item, "role", None) != "assistant":
+        return ""
+    try:
+        return (item.text_content or "").strip()
+    except AttributeError:
+        return ""
+
 async def generate_and_save_report(context: InterviewContext, session_id: str, user_id: str | None = None, user_email: str | None = None):
     """Generate report from transcript and POST it to the backend."""
     async with _report_lock:
@@ -183,6 +204,15 @@ class InterviewWorkflow:
         self.context = InterviewContext(plan=plan)
         self.session = session
         self.session_id = session_id
+        # Created by _run_interview shortly after the workflow itself; the
+        # end_interview tool cancels it so the 10-minute cap can't inject
+        # wrap-up audio while the report is being generated.
+        self.timer_task: asyncio.Task | None = None
+        # Also wired up by _run_interview (needs the JobContext). end_interview
+        # uses it to re-arm a delayed shutdown when the room close fails — the
+        # hard-cap timer is cancelled first, so without this a job stuck in a
+        # room that never closed would have no worker-side backstop.
+        self.schedule_delayed_shutdown: Callable[[str, float], asyncio.Task] | None = None
 
     @llm.function_tool(description=(
         "Evaluate the candidate's last answer. Pass the candidate's EXACT words as 'candidate_response'. "
@@ -202,14 +232,55 @@ class InterviewWorkflow:
             logger.warning(f"Evaluation failed: {e}")
         return "The answer was satisfactory. Move on to the next topic."
 
-    @llm.function_tool(description="End the interview and generate a final report. Call this when you have asked enough questions.")
+    @llm.function_tool(description=(
+        "End the interview NOW: generate the final report and close the voice session. "
+        "Say a brief goodbye to the candidate FIRST, then call this in the same turn. "
+        "Call it when the candidate asks to end or leave, stops engaging, or when you have "
+        "covered the key topics. Never keep interviewing a candidate who wants to stop."
+    ))
     async def end_interview(self) -> str:
-        logger.info("Ending interview and generating report...")
+        logger.info("end_interview tool called — finalizing report and closing the room.")
+        self.context.current_phase = "Outro"
+
+        # Stop the time-cap timer so it can't inject wrap-up audio or fire the
+        # hard cap while the report is being generated.
+        if self.timer_task and not self.timer_task.done():
+            self.timer_task.cancel()
+
+        # The report must be saved BEFORE the room goes away: the candidate's
+        # browser starts polling /report/{id} the moment its room disconnects.
         await generate_and_save_report(
             self.context, self.session_id, self.context.user_id, self.context.user_email
         )
-        self.context.current_phase = "Outro"
-        return "Report generated. Thank the candidate and say goodbye."
+
+        # Deleting the LiveKit room disconnects everyone (candidate included) —
+        # that is what actually ends the interview. The frontend sees the room
+        # close, shows the completion overlay, and finds the report already
+        # saved. Our own participant_disconnected handler then shuts the job
+        # down; if the room close fails the candidate can still end manually.
+        backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        worker_api_key = os.getenv("WORKER_API_KEY", "")
+        auth_headers = {"Authorization": f"Bearer {worker_api_key}"} if worker_api_key else {}
+        closed = False
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{backend_url}/rooms/{self.session_id}/close", headers=auth_headers
+                )
+                if resp.status_code == 200:
+                    closed = True
+                    logger.info("Room closed; interview ended by the agent.")
+                else:
+                    logger.error(f"Room close failed: {resp.status_code} {resp.text}")
+                    sentry_sdk.capture_message(f"Room close failed: {resp.status_code}")
+        except Exception as e:
+            logger.error(f"HTTP error closing room {self.session_id}: {e}", exc_info=True)
+            sentry_sdk.capture_exception(e)
+
+        if not closed and self.schedule_delayed_shutdown:
+            self.schedule_delayed_shutdown("end_interview_close_failed", _CLOSE_FALLBACK_SECONDS)
+
+        return "Interview ended. Thank the candidate and stop speaking."
 
 
 async def entrypoint(ctx: JobContext):
@@ -298,15 +369,9 @@ async def _run_interview(ctx: JobContext, workflow: InterviewWorkflow):
 
     @session.on("conversation_item_added")
     def on_conversation_item(ev):
-        item = ev.item
-        if hasattr(item, 'role') and item.role == 'assistant':
-            text_parts = []
-            if hasattr(item, 'content'):
-                for part in item.content:
-                    if hasattr(part, 'text') and part.text:
-                        text_parts.append(part.text)
-            if text_parts:
-                workflow.context.transcript.append({"speaker": "Interviewer", "text": " ".join(text_parts), "timestamp_s": round(time.time() - workflow.context.start_time, 2)})
+        text = assistant_transcript_text(ev.item)
+        if text:
+            workflow.context.transcript.append({"speaker": "Interviewer", "text": text, "timestamp_s": round(time.time() - workflow.context.start_time, 2)})
 
     # Generate report immediately when participant disconnects, then shut down the worker
     report_task = None
@@ -343,6 +408,16 @@ async def _run_interview(ctx: JobContext, workflow: InterviewWorkflow):
 
     ctx.add_shutdown_callback(on_shutdown)
 
+    def _schedule_delayed_shutdown(reason: str, delay_s: float) -> asyncio.Task:
+        async def _fire():
+            await asyncio.sleep(delay_s)
+            logger.info(f"Delayed shutdown firing ({reason}).")
+            ctx.shutdown(reason=reason)
+
+        return asyncio.create_task(_fire())
+
+    workflow.schedule_delayed_shutdown = _schedule_delayed_shutdown
+
     instructions = (
         f"You are Aura, a professional AI Interviewer conducting a technical interview. "
         f"You are interviewing {plan.candidate_name}. "
@@ -372,13 +447,22 @@ async def _run_interview(ctx: JobContext, workflow: InterviewWorkflow):
         "- \"That's outside the scope of our conversation today. Let me ask you about...\"\n"
         "Always pivot to a new or follow-up interview question after redirecting.\n\n"
 
+        "## ENDING THE INTERVIEW\n"
+        "- The end_interview tool truly ends the session: it saves the report and closes the room.\n"
+        "- ALWAYS say a short goodbye (e.g., \"Thanks for your time — you'll receive your report shortly.\") "
+        "in the same turn BEFORE calling end_interview.\n"
+        "- If the candidate asks to end, stop, or leave early, do NOT keep interviewing them: accept it, "
+        "say a brief goodbye, and call end_interview right away.\n"
+        "- If the candidate becomes unresponsive for a long stretch or the interview clearly cannot continue, "
+        "say goodbye and call end_interview.\n\n"
+
         "## INTERVIEW FLOW\n"
         "1. Greet the candidate warmly.\n"
         "2. Ask questions from the question bank, adapting based on their answers.\n"
         "3. Use evaluate_answer only when you are genuinely unsure what to ask next.\n"
         "4. The interview has a 10-minute time limit. Aim to cover 3-4 key topics in depth rather than rushing through all questions.\n"
-        "5. When you receive a wrap-up signal or notice time running short, ask one final summarizing question and then call end_interview.\n"
-        "6. After covering 3-5 topics, call end_interview to conclude.\n"
+        "5. When you receive a wrap-up signal or notice time running short, ask one final summarizing question, then say a brief goodbye and call end_interview.\n"
+        "6. After covering 3-5 topics, say a brief goodbye and call end_interview to conclude.\n"
         "7. Keep responses concise (2-3 sentences max). Wait for the candidate to finish speaking.\n"
         "8. If the candidate repeatedly tries to derail the conversation, firmly but politely "
         "remind them that this is their interview time and you want to make the most of it."
@@ -430,6 +514,7 @@ async def _run_interview(ctx: JobContext, workflow: InterviewWorkflow):
             await asyncio.sleep(1)  # Check every 1 second
 
     timer_task = asyncio.create_task(time_cap_timer())
+    workflow.timer_task = timer_task
 
     session.say(f"Hello {plan.candidate_name}! I am your AI interviewer today. How are you doing?", allow_interruptions=True)
 

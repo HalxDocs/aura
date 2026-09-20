@@ -169,6 +169,7 @@ The app is served on `127.0.0.1:3000`. Point a reverse proxy (Caddy/nginx) with 
 | `GET` | `/invite/{token}` | Candidate: preview an invite |
 | `POST` | `/invite/{token}/start` | Candidate: redeem invite, create session (410 once the link has expired) |
 | `POST` | `/audio/{session_id}` | Upload browser-recorded interview audio |
+| `POST` | `/rooms/{session_id}/close` | Worker-only: delete the LiveKit room (agent-initiated interview end) |
 | `GET` | `/download/{session_id}/audio` | Download interview recording |
 
 ## Testing

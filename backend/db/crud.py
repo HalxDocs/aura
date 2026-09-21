@@ -200,6 +200,37 @@ async def create_session(
     return session
 
 
+async def create_session_for_invite(
+    db: AsyncSession,
+    *,
+    session_id: str,
+    user_id: str,
+    candidate_name: str,
+    plan_json: str,
+) -> InterviewSession:
+    """Create the session a redeemed invite points at, and commit the pair.
+
+    redeem_invite claims without committing (the FK on interview_invites
+    .session_id is DEFERRABLE INITIALLY DEFERRED), so claim + session INSERT
+    must land in one transaction: the deferred check runs at COMMIT, after
+    the session row exists, and a crash can no longer strand a claimed invite
+    pointing at a session that was never written. On failure the transaction
+    rolls back and the claim with it — the link simply stays redeemable, so
+    release_invite_claim is no longer needed on this path.
+    """
+    session = InterviewSession(
+        id=session_id,
+        user_id=user_id,
+        candidate_name=candidate_name,
+        plan_json=plan_json,
+        status="pending",
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
 async def get_session(db: AsyncSession, session_id: str) -> InterviewSession | None:
     result = await db.execute(select(InterviewSession).where(InterviewSession.id == session_id))
     return result.scalar_one_or_none()
@@ -388,7 +419,9 @@ async def redeem_invite(
     consume quota, or redeem a cancelled link — the loser sees zero rows
     affected and gets one of these failure reasons:
 
-    - ``claimed`` — the UPDATE bound the invite; caller may create the session.
+    - ``claimed`` — the UPDATE bound the invite; caller must create the
+      session **and commit the same transaction** before the session ends
+      (see ``create_session_for_invite``, which does both atomically).
     - ``already_claimed`` — another candidate (or an earlier request) holds it.
     - ``cancelled`` — the invite was cancelled (a cancel racing a redeem loses
       its own race here rather than leaving a cancelled link spendable).
@@ -431,12 +464,18 @@ async def redeem_invite(
             redeemed_at=now,
         )
     )
-    await db.commit()
+    # Committed by the caller together with the session INSERT
+    # (create_session_for_invite) — splitting this into its own commit would
+    # open a crash window with a claimed invite pointing at a session that
+    # never lands, and the deferred FK would rightly reject it at commit.
     if result.rowcount == 1:
         return CLAIMED
 
     # Claim lost — re-read the committed row to tell the caller *why*, so the
-    # endpoint can return an accurate error instead of a generic 403.
+    # endpoint can return an accurate error instead of a generic 403. No
+    # rollback needed: this transaction's UPDATE matched zero rows, so it has
+    # nothing of its own to discard (and a rollback here would wrongly discard
+    # other uncommitted work on shared-connection setups).
     stored = await get_invite_by_id(db, invite_id)
     if stored is None or stored.candidate_user_id is not None:
         return ALREADY_CLAIMED
@@ -452,7 +491,12 @@ async def redeem_invite(
 
 
 async def release_invite_claim(db: AsyncSession, invite_id: str) -> None:
-    """Undo a claim whose session could not be written, making the link reusable."""
+    """Manually undo a claim, making the link redeemable again.
+
+    The /invite/{token}/start path no longer calls this — a failed
+    create_session_for_invite rolls the whole transaction back, claim
+    included. Kept for tests and manual recovery.
+    """
     await db.execute(
         update(InterviewInvite)
         .where(InterviewInvite.id == invite_id)

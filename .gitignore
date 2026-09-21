@@ -10,3 +10,9 @@ logs/
 # overrides — per-developer, never deployed.
 .zcode/
 docker-compose.override.yml
+scripts/web-audit/state/
+# Web-audit run artifacts + fetched axe-core: raw results and screenshots
+# carry production URLs and row IDs — never commit them to the public repo.
+scripts/web-audit/results/
+scripts/web-audit/shots/
+scripts/web-audit/vendor/

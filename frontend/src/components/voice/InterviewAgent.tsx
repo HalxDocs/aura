@@ -467,7 +467,7 @@ function InterviewInner({ sessionId, candidateName = "Candidate", recordAudio = 
             <span className="mark" aria-hidden="true"></span>
             <span className="text">Aura</span>
           </a>
-          <div className="candidate-chip" aria-label="Candidate">
+          <div className="candidate-chip" role="group" aria-label="Candidate">
             <span className="avatar" aria-hidden="true">{initials}</span>
             <span className="name">{candidateName}</span>
           </div>
@@ -490,7 +490,7 @@ function InterviewInner({ sessionId, candidateName = "Candidate", recordAudio = 
             </svg>
             <span>{mm}:{ss}</span>
           </div>
-          <div className="session-id" aria-label="Session identifier">
+          <div className="session-id" role="group" aria-label="Session identifier">
             <strong>SID</strong> · {sidShort}
           </div>
         </div>

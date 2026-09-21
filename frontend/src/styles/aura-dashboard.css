@@ -13,9 +13,9 @@
   --fg: #fafafa;
   --fg-2: #e4e4e7;
   --muted: #a1a1aa;
-  --muted-2: #71717a;
-  --muted-3: #52525b;
-  --accent: #6366f1;
+  --muted-2: #8e8e99;
+  --muted-3: #7c7c87;
+  --accent: #6063ef;
   --accent-2: #818cf8;
   --accent-3: #a5b4fc;
   --accent-deep: #4338ca;
@@ -55,23 +55,11 @@
 
 .aura-dashboard-page .container { width: 100%; max-width: 1240px; margin: 0 auto; padding-inline: var(--gutter); position: relative; z-index: 1; }
 
-.aura-dashboard-page .nav { position: sticky; top: 12px; z-index: 50; max-width: 1240px; width: calc(100% - 32px); margin: 12px auto 0; backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); background: rgba(9, 9, 11, 0.85); border: 1px solid var(--border-soft); border-radius: 20px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); }
-.aura-dashboard-page .nav-row { display: flex; align-items: center; justify-content: space-between; height: 52px; gap: 16px; padding: 0 16px; }
-.aura-dashboard-page .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
-.aura-dashboard-page .brand .mark { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.65), transparent 50%), radial-gradient(circle at 50% 50%, var(--accent-2), var(--accent) 45%, var(--accent-deep) 75%, #0a0a12 100%); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px rgba(99,102,241,0.55); }
 
-.aura-dashboard-page .nav-links { display: none; gap: 22px; color: var(--muted); font-size: 14px; align-items: center; }
-.aura-dashboard-page .nav-links a { padding: 6px 4px; border-bottom: 1px solid transparent; transition: color .15s, border-color .15s; }
-.aura-dashboard-page .nav-links a:hover { color: var(--fg); }
-.aura-dashboard-page .nav-links a.active { color: var(--fg); border-bottom-color: var(--accent); }
-@media (min-width: 720px) { .aura-dashboard-page .nav-links { display: inline-flex; } }
 
-.aura-dashboard-page .nav-cta { display: flex; align-items: center; gap: 10px; }
-.aura-dashboard-page .user-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.aura-dashboard-page .user-chip .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(180deg, var(--accent-2), var(--accent)); display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
 
 .aura-dashboard-page .btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 500; letter-spacing: -0.005em; transition: transform .15s, background .2s, border-color .2s, color .2s, box-shadow .25s; white-space: nowrap; }
-.aura-dashboard-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 22px -10px rgba(99,102,241,0.7); }
+.aura-dashboard-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 22px -10px rgba(99,102,241,0.7); }
 .aura-dashboard-page .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset, 0 1px 0 rgba(255,255,255,0.3) inset, 0 12px 28px -10px rgba(99,102,241,0.85); }
 .aura-dashboard-page .btn-ghost { color: var(--fg-2); border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
 .aura-dashboard-page .btn-ghost:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.04); }
@@ -160,7 +148,15 @@
 .aura-dashboard-page .back-link:hover { color: var(--fg-2); background: rgba(255,255,255,0.04); }
 
 /* Candidate / recruiter mode switcher (AppHeader) */
-.nav-mode { display: inline-flex; align-items: center; padding: 3px; background: rgba(255,255,255,0.02); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; }
-.nav-mode button { height: 28px; padding: 0 12px; border-radius: 6px; font-size: 12px; color: var(--muted, #a1a1aa); font-weight: 500; transition: color .15s, background .15s; }
-.nav-mode button:hover { color: var(--fg-2, #e4e4e7); }
-.nav-mode button.active { background: var(--accent, #6366f1); color: white; }
+
+/* Narrow screens: pan inside the card, keep the page itself fixed-width
+   (audit finding: recruiter/admin dashboards scrolled the whole page at
+   390px because the interviews table kept its desktop column set). */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll .table {
+  min-width: 720px;
+}

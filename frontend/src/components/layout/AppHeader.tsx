@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, type Mode } from '@/contexts/AuthContext'
 import { initials } from '@/lib/dashboard-utils'
+import '@/styles/aura-header.css'
 
 export type HeaderLink =
   | 'new-interview'
@@ -37,7 +38,7 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
   }
 
   return (
-    <nav className="nav" aria-label="Primary">
+    <nav className="nav aura-app-header" aria-label="Primary">
       <div className="nav-row">
         <Link to="/" className="brand" aria-label="Aura home">
           <span className="mark" aria-hidden="true"></span><span>Aura</span>
@@ -93,7 +94,7 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
           {user && (
             <span className="user-chip">
               <span className="avatar" aria-hidden="true">{initials(user.name || user.email)}</span>
-              {user.name || user.email}
+              <span className="name">{user.name || user.email}</span>
             </span>
           )}
           <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>

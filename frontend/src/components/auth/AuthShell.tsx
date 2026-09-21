@@ -24,12 +24,14 @@ export function AuthShell({
         <AuraMark size={26} />
         <span className="text-lg font-semibold tracking-tight">Aura</span>
       </Link>
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-lg">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
-        <div className="mt-6">{children}</div>
-      </div>
-      {footer && <div className="mt-6 text-sm text-muted-foreground">{footer}</div>}
+      <main className="flex w-full flex-col items-center">
+        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-lg">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+          <div className="mt-6">{children}</div>
+        </div>
+        {footer && <div className="mt-6 text-sm text-muted-foreground">{footer}</div>}
+      </main>
     </div>
   );
 }

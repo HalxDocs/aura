@@ -16,9 +16,9 @@
   --fg: #fafafa;
   --fg-2: #e4e4e7;
   --muted: #a1a1aa;
-  --muted-2: #71717a;
-  --muted-3: #52525b;
-  --accent: #6366f1;
+  --muted-2: #8e8e99;
+  --muted-3: #7c7c87;
+  --accent: #6063ef;
   --accent-2: #818cf8;
   --accent-3: #a5b4fc;
   --accent-deep: #4338ca;
@@ -66,7 +66,7 @@
 .aura-report-page .nav-actions { display: flex; align-items: center; gap: 8px; }
 
 .aura-report-page .btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 500; letter-spacing: -0.005em; transition: transform .15s, background .2s, border-color .2s, color .2s, box-shadow .25s; white-space: nowrap; }
-.aura-report-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 22px -10px rgba(99,102,241,0.7); }
+.aura-report-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 22px -10px rgba(99,102,241,0.7); }
 .aura-report-page .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset, 0 1px 0 rgba(255,255,255,0.3) inset, 0 12px 28px -10px rgba(99,102,241,0.85); }
 .aura-report-page .btn-ghost { color: var(--fg-2); border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
 .aura-report-page .btn-ghost:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.04); }

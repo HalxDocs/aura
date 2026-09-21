@@ -7,10 +7,12 @@ import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import { initials, formatDateTime, isExpired } from '@/lib/dashboard-utils'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 type Step = 'PREVIEW' | 'INTERVIEW'
 
 export function InviteInterview() {
+  usePageMeta("Interview invitation — Aura", { noindex: true })
   const { token } = useParams<{ token: string }>()
   const { user, login } = useAuth()
   const navigate = useNavigate()

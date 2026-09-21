@@ -15,6 +15,7 @@ import { mergeParsedIntoProfile, parsedHasContent, isBlankExperience, isBlankEdu
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 const MAX_SKILLS = 30
 
@@ -29,6 +30,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 export function CandidateProfile() {
+  usePageMeta("Candidate profile — Aura")
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()

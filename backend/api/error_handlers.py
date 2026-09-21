@@ -5,8 +5,9 @@ error response keeps the ``detail`` key FastAPI clients already expect, and
 gains two correlation fields so problems can be matched against Sentry/Langfuse
 logs:
 
-- ``error_id``: UUID4 generated per response (matches the logged id for
-  unhandled exceptions).
+- ``error_id``: for unhandled exceptions, the Sentry event id (so a user
+  reporting an error_id maps to exactly one Sentry event); a UUID4 when
+  Sentry is disabled.
 - ``path``: the request path that produced the error.
 
 Handlers:
@@ -22,6 +23,8 @@ Handlers:
 import logging
 import time
 import uuid
+
+import sentry_sdk
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -76,7 +79,12 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
-        error_id = str(uuid.uuid4())
+        # Report through Sentry explicitly and reuse its event id as the
+        # response error_id. The framework integration never sees this
+        # exception (this handler swallows it), so without this call it would
+        # not reach Sentry at all. capture_exception returns None when no DSN
+        # is configured — fall back to a random uuid then.
+        error_id = sentry_sdk.capture_exception(exc) or str(uuid.uuid4())
         logger.error(
             "Unhandled exception on %s %s [%s]: %s",
             request.method,

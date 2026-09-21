@@ -37,11 +37,15 @@ load_dotenv()
 
 import sentry_sdk
 
+from utils.logging_setup import setup_logging
+
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
     traces_sample_rate=1.0,
     environment=os.getenv("ENVIRONMENT", "production"),
 )
+
+setup_logging()
 
 logger = logging.getLogger("voice-agent")
 logger.setLevel(logging.INFO)

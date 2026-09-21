@@ -9,8 +9,10 @@ import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function InterviewFlow() {
+  usePageMeta("New interview — Aura")
   const { step, sessionId, plan, report, startPreview, startInterview, showReport, reset } = useInterview()
   const [file, setFile] = useState<File | null>(null)
   const [jobDescription, setJobDescription] = useState('')
@@ -205,7 +207,7 @@ export function InterviewFlow() {
                 <div className="avatar">{plan.candidate_name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase() || 'C'}</div>
                 <div>
                   <h2 className="name">{plan.candidate_name}</h2>
-                  <div className="sub">Voice interview · approx. 10–15 min</div>
+                  <div className="sub">Voice interview · {plan.question_bank.length} question{plan.question_bank.length === 1 ? "" : "s"} · approx. 10–15 min</div>
                 </div>
               </div>
 

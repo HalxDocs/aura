@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import '@/styles/aura-landing.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 const ORB_STATES = [
   { state: 'listening', label: 'listening' },
@@ -10,6 +11,7 @@ const ORB_STATES = [
 ] as const
 
 export function Landing() {
+  usePageMeta("Aura — AI Interviewer: Real-Time Voice Interviews", { description: "Upload a resume, have a live voice interview with an AI interviewer, and get a structured hiring report with scores and a recommendation.", canonical: window.location.origin + "/" })
   const pageRef = useRef<HTMLDivElement>(null)
   const [orbIdx, setOrbIdx] = useState(0)
   const [labelFading, setLabelFading] = useState(false)
@@ -127,6 +129,7 @@ export function Landing() {
         </div>
       </header>
 
+      <main>
       <section className="hero" aria-labelledby="hero-title">
         <div className="container hero-grid">
           <div className="reveal">
@@ -413,6 +416,7 @@ export function Landing() {
           </div>
         </div>
       </section>
+      </main>
 
       <footer className="footer">
         <div className="container footer-row">

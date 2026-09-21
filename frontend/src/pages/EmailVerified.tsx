@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { Button } from '@/components/ui/button';
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 const STATES = {
   success: {
@@ -21,6 +22,7 @@ const STATES = {
 } as const;
 
 export function EmailVerified() {
+  usePageMeta("Email verified — Aura", { noindex: true })
   const [params] = useSearchParams();
   const status = params.get('status');
   const state = STATES[(status as keyof typeof STATES) ?? 'invalid'] ?? STATES.invalid;

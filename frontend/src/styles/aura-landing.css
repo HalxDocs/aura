@@ -6,8 +6,8 @@
   --bg: #09090b; --bg-2: #0c0c0f;
   --surface: rgba(255,255,255,0.03); --surface-2: rgba(255,255,255,0.05);
   --border: #27272a; --border-soft: rgba(255,255,255,0.06);
-  --fg: #fafafa; --fg-2: #e4e4e7; --muted: #a1a1aa; --muted-2: #71717a;
-  --accent: #6366f1; --accent-2: #818cf8; --accent-deep: #4338ca; --success: #10b981;
+  --fg: #fafafa; --fg-2: #e4e4e7; --muted: #a1a1aa; --muted-2: #8e8e99;
+  --accent: #6063ef; --accent-2: #818cf8; --accent-deep: #4338ca; --success: #10b981;
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -47,7 +47,7 @@
 @media (min-width: 820px) { .aura-landing-page .nav-links { display: inline-flex; } }
 
 .aura-landing-page .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 500; letter-spacing: -0.005em; transition: transform .15s ease, background .2s ease, border-color .2s ease, color .2s ease, box-shadow .25s ease; white-space: nowrap; }
-.aura-landing-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 24px -10px rgba(99,102,241,0.7), 0 2px 6px rgba(0,0,0,0.3); }
+.aura-landing-page .btn-primary { color: white; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.25) inset, 0 8px 24px -10px rgba(99,102,241,0.7), 0 2px 6px rgba(0,0,0,0.3); }
 .aura-landing-page .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 1px 0 rgba(255,255,255,0.3) inset, 0 14px 32px -10px rgba(99,102,241,0.85), 0 4px 10px rgba(0,0,0,0.35); }
 .aura-landing-page .btn-ghost { color: var(--fg-2); border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
 .aura-landing-page .btn-ghost:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }

@@ -4,11 +4,13 @@ import { listAdminSessions, type SessionSummary } from '@/api/client'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { recPill, statusPill, formatDate } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 type StatusFilter = 'all' | 'pending' | 'in_progress' | 'completed'
 type SortKey = 'created_at' | 'candidate_name' | 'overall_score' | 'status'
 
 export function AdminDashboard() {
+  usePageMeta("All interviews — Aura Admin")
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +136,7 @@ export function AdminDashboard() {
           </div>
         ) : (
           <>
-            <div className="stats-bar" aria-label="Dashboard statistics">
+            <div className="stats-bar" role="group" aria-label="Dashboard statistics">
               <div className="stat-card">
                 <div className="stat-label">Total sessions</div>
                 <div className="stat-value">{stats.total}</div>
@@ -177,7 +179,7 @@ export function AdminDashboard() {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card table-scroll">
               <table className="table" role="table">
                 <thead>
                   <tr>

@@ -4,8 +4,10 @@ import { apiErrorMessage, requestPasswordReset } from '@/api/client';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function ForgotPassword() {
+  usePageMeta("Reset your password — Aura", { noindex: true })
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);

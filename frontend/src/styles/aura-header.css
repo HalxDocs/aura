@@ -1,0 +1,154 @@
+/* Shared AppHeader styles.
+ *
+ * These used to live only inside aura-dashboard.css (scoped to
+ * .aura-dashboard-page), so every page that renders the full AppHeader from
+ * a different stylesheet world (aura-pre.css: InviteBuilder, both profiles,
+ * RolePicker) lost the nav-link spacing and user-chip styling entirely —
+ * links rendered jammed together and the header avatar fell through to the
+ * landing page's 48px avatar. Importing this file from AppHeader.tsx makes
+ * the header self-contained on every page. Scoped under .aura-app-header so
+ * the pre/landing .nav rules (their own pill) keep applying alongside.
+ */
+
+.aura-app-header {
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  max-width: 1240px;
+  width: calc(100% - 32px);
+  margin: 12px auto 0;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(9, 9, 11, 0.85);
+  border: 1px solid var(--border-soft, #27272a);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.aura-app-header .nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  gap: 16px;
+  padding: 0 16px;
+}
+
+.aura-app-header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--fg, #fafafa);
+  letter-spacing: -0.01em;
+}
+
+.aura-app-header .brand .mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.65), transparent 50%),
+    radial-gradient(circle at 50% 50%, var(--accent-2, #818cf8), var(--accent, #6063ef) 45%, var(--accent-deep, #4338ca) 75%, #0a0a12 100%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 16px rgba(99, 102, 241, 0.55);
+}
+
+.aura-app-header .nav-links {
+  display: none;
+  gap: 22px;
+  color: var(--muted, #a1a1aa);
+  font-size: 14px;
+  align-items: center;
+}
+
+.aura-app-header .nav-links a {
+  padding: 6px 4px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.aura-app-header .nav-links a:hover {
+  color: var(--fg, #fafafa);
+}
+
+.aura-app-header .nav-links a.active {
+  color: var(--fg, #fafafa);
+  border-bottom-color: var(--accent, #6063ef);
+}
+
+@media (min-width: 720px) {
+  .aura-app-header .nav-links {
+    display: inline-flex;
+  }
+}
+
+.aura-app-header .nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aura-app-header .nav-mode {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+}
+
+.aura-app-header .nav-mode button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted, #a1a1aa);
+  font-weight: 500;
+  transition: color 0.15s, background 0.15s;
+}
+
+.aura-app-header .nav-mode button:hover {
+  color: var(--fg-2, #e4e4e7);
+}
+
+.aura-app-header .nav-mode button.active {
+  background: var(--accent, #6063ef);
+  color: white;
+}
+
+.aura-app-header .user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted, #a1a1aa);
+  min-width: 0;
+}
+
+.aura-app-header .user-chip .name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aura-app-header .user-chip .avatar {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--accent, #6063ef), var(--accent-deep, #4338ca));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  /* Phones: the name wraps under the avatar otherwise (audit, m__rec). */
+  .aura-app-header .user-chip .name {
+    display: none;
+  }
+}

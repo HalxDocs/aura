@@ -1,17 +1,41 @@
 import { useEffect, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { downloadArtifact, getMySessionDetail, type SessionDetail, type TranscriptEntryRead } from '@/api/client'
 import { ReportView } from '@/components/interview/ReportView'
 import { AppHeader } from '@/components/layout/AppHeader'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
+
+// WAI-ARIA tabs pattern: click activates, arrow keys/Home/End move both focus
+// and selection (selection follows focus), and only the active tab is in the
+// tab order (roving tabindex).
+const TABS = [
+  { key: 'report', label: 'Report' },
+  { key: 'transcript', label: 'Transcript' },
+] as const
 
 export function CandidateSessionReport() {
+  usePageMeta("Interview report — Aura")
   const navigate = useNavigate()
   const { sessionId } = useParams<{ sessionId: string }>()
   const [data, setData] = useState<SessionDetail | null>(null)
   const [tab, setTab] = useState<'report' | 'transcript'>('report')
   const [error, setError] = useState<string | null>(null)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  function onTablistKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const idx = TABS.findIndex(t => t.key === tab)
+    let next: number
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % TABS.length
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx + TABS.length - 1) % TABS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = TABS.length - 1
+    else return
+    e.preventDefault()
+    setTab(TABS[next].key)
+    document.getElementById(`tab-${TABS[next].key}`)?.focus()
+  }
 
   useEffect(() => {
     if (!sessionId) return
@@ -85,6 +109,10 @@ export function CandidateSessionReport() {
       <AppHeader active="my-interviews" />
 
       <main className="container">
+        {/* The page's <h1>: ReportView below is embedded with headingLevel="h2"
+            and the tabpanels carry their own <h2>s, so every tab state keeps
+            exactly one heading level per page (axe page-has-heading-one). */}
+        <h1 className="sr-only">Interview report</h1>
         <Link to="/my-interviews" className="back-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"/>
@@ -92,20 +120,41 @@ export function CandidateSessionReport() {
           Back to my interviews
         </Link>
 
-        <div className="filter-bar" role="tablist" aria-label="Interview artifacts" style={{ marginBottom: 20 }}>
-          <button className={`btn ${tab === 'report' ? 'btn-primary' : 'btn-ghost'}`} role="tab" aria-selected={tab === 'report'} onClick={() => setTab('report')}>Report</button>
-          <button className={`btn ${tab === 'transcript' ? 'btn-primary' : 'btn-ghost'}`} role="tab" aria-selected={tab === 'transcript'} onClick={() => setTab('transcript')}>Transcript</button>
+        <div className="filter-bar" style={{ marginBottom: 20 }}>
+          <div role="tablist" aria-label="Interview artifacts" style={{ display: 'flex', gap: 12 }} onKeyDown={onTablistKeyDown}>
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                className={`btn ${tab === t.key ? 'btn-primary' : 'btn-ghost'}`}
+                role="tab"
+                id={`tab-${t.key}`}
+                aria-selected={tab === t.key}
+                aria-controls={`${t.key}-panel`}
+                tabIndex={tab === t.key ? 0 : -1}
+                onClick={() => setTab(t.key)}
+              >{t.label}</button>
+            ))}
+          </div>
           <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} disabled={!data.report} onClick={() => handleDownload('pdf')}>Download PDF</button>
           <button className="btn btn-ghost" disabled={!data.transcript?.length} onClick={() => handleDownload('transcript')}>Download transcript</button>
         </div>
         {downloadError && <div className="error-banner" role="alert" style={{ marginBottom: 16 }}>{downloadError}</div>}
 
         {tab === 'report' && data.report ? (
-          <ReportView report={data.report} sessionId={sessionId!} onDone={() => navigate('/my-interviews')} />
+          <div role="tabpanel" id="report-panel" aria-labelledby="tab-report">
+            <ReportView report={data.report} sessionId={sessionId!} onDone={() => navigate('/my-interviews')} headingLevel="h2" />
+          </div>
         ) : tab === 'report' ? (
-          <div className="card"><div className="empty"><h3>Report not ready</h3><p>The report will appear once the interview is complete.</p></div></div>
+          <div role="tabpanel" id="report-panel" aria-labelledby="tab-report" className="card">
+            <div className="empty">
+              <h2 className="section-title">Report</h2>
+              <h3>Report not ready</h3>
+              <p>The report will appear once the interview is complete.</p>
+            </div>
+          </div>
         ) : data.transcript && data.transcript.length > 0 ? (
-          <div className="card">
+          <div role="tabpanel" id="transcript-panel" aria-labelledby="tab-transcript" className="card">
+            <h2 className="section-title">Transcript</h2>
             <div className="transcript" role="log" aria-label="Interview transcript">
               {data.transcript.map((entry: TranscriptEntryRead, index: number) => (
                 <div key={index} className={`transcript-line ${entry.speaker === 'Interviewer' ? 'assistant' : ''}`}>
@@ -116,7 +165,13 @@ export function CandidateSessionReport() {
             </div>
           </div>
         ) : (
-          <div className="card"><div className="empty"><h3>No transcript available</h3><p>The transcript will appear after the interview concludes.</p></div></div>
+          <div role="tabpanel" id="transcript-panel" aria-labelledby="tab-transcript" className="card">
+            <div className="empty">
+              <h2 className="section-title">Transcript</h2>
+              <h3>No transcript available</h3>
+              <p>The transcript will appear after the interview concludes.</p>
+            </div>
+          </div>
         )}
       </main>
     </div>

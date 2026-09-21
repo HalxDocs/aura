@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/dashboard-utils'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 const MIN_QUESTIONS = 2
 const MAX_QUESTIONS = 5
@@ -21,6 +22,7 @@ const EXPIRY_OPTIONS = [
 const DEFAULT_EXPIRY_HOURS = 24
 
 export function InviteBuilder() {
+  usePageMeta("New interview invite — Aura Recruiter")
   const { toast } = useToast()
   const [title, setTitle] = useState('')
   const [context, setContext] = useState('')

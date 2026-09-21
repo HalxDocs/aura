@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { setUserRole } from '@/api/client'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 /**
  * Starting-mode picker (first login) and mode switch via ``?switch=1``.
@@ -15,6 +16,7 @@ import '@/styles/aura-pre.css'
  * without this API call.
  */
 export function RolePicker() {
+  usePageMeta("Choose your role — Aura")
   const { user, setAuth, setMode } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()

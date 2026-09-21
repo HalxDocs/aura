@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 /** Full-page 404 for any unmatched URL. Reuses the dashboard design system. */
 export function NotFound() {
+  usePageMeta("Page not found — Aura", { noindex: true })
   return (
     <div className="aura-dashboard-page">
       <div className="page-ambient" aria-hidden="true"></div>

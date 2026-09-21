@@ -10,10 +10,14 @@ import {
 import { AuthShell, OAuthButtons } from '@/components/auth/AuthShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 type Mode = 'signin' | 'signup';
 
 export function LoginPage() {
+  // Canonical strips the ?mode=signup variant so both auth modes resolve to
+  // one indexed URL.
+  usePageMeta("Sign in — Aura", { description: "Sign in to run practice voice interviews or manage recruiter invites.", canonical: window.location.origin + '/login' })
   const { setAuth, login } = useAuth();
   const navigate = useNavigate();
 

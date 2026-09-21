@@ -5,8 +5,10 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { statusPill, formatDateTime, initials, isExpired } from '@/lib/dashboard-utils'
 import { ReportView } from '@/components/interview/ReportView'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function InviteDetail() {
+  usePageMeta("Interview invite — Aura Recruiter")
   const { inviteId } = useParams<{ inviteId: string }>()
   const [invite, setInvite] = useState<InviteDetailData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -104,6 +106,7 @@ export function InviteDetail() {
         report={invite.report}
         sessionId={invite.session_id || ''}
         onDone={() => window.history.back()}
+        headingLevel="h2"
         recruiterActions={
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {audioUrl && <audio controls src={audioUrl} style={{ height: 36 }} aria-label="Interview recording" />}

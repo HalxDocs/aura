@@ -6,6 +6,7 @@ import { apiErrorMessage } from '@/api/client'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import '@/styles/aura-pre.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -18,6 +19,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 export function RecruiterProfile() {
+  usePageMeta("Company profile — Aura Recruiter")
   const navigate = useNavigate()
   const { toast } = useToast()
 

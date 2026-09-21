@@ -57,7 +57,7 @@ from db.crud import (
     list_invites_for_recruiter,
     count_redeemed_invites_this_month,
     redeem_invite,
-    release_invite_claim,
+    create_session_for_invite,
     complete_invite_by_session,
     get_recruiter_profile,
     CLAIMED,
@@ -75,6 +75,8 @@ from utils.config import (
 
 import sentry_sdk
 
+from utils.logging_setup import setup_logging
+
 logger = logging.getLogger(__name__)
 
 sentry_sdk.init(
@@ -82,6 +84,11 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     environment=ENVIRONMENT,
 )
+
+# Root handler so our log records (tracebacks from the global error handler,
+# worker-write audit lines) actually reach the console instead of being
+# dropped by uvicorn's default dictConfig.
+setup_logging()
 
 def _run_migrations() -> None:
     """Bring the database schema up to date with Alembic migrations.
@@ -845,9 +852,15 @@ async def start_invited_interview(request: Request, token: str, user=Depends(get
         )
         # Claim the invite *before* creating the session so single-use, the
         # cancelled guard, and the monthly quota are all one compare-and-swap:
-        # concurrent starts race on this UPDATE, and only the winner goes on to
-        # create a session. Checking the quota with a SELECT first would let two
-        # starts on different invites of the same recruiter both pass.
+        # concurrent starts race on this UPDATE, and only the winner goes on
+        # to create a session. Checking the quota with a SELECT first would
+        # let two starts on different invites of the same recruiter both pass.
+        #
+        # redeem_invite no longer commits: the claim and the session INSERT
+        # share one transaction, and the FK on interview_invites.session_id
+        # (DEFERRABLE INITIALLY DEFERRED) checks at COMMIT — after the
+        # session row exists. A crash between the two can no longer strand a
+        # claimed invite pointing at a session that was never written.
         session_id = str(uuid.uuid4())
         reason = await redeem_invite(
             db,
@@ -881,19 +894,15 @@ async def start_invited_interview(request: Request, token: str, user=Depends(get
                 detail="This recruiter has reached their monthly interview limit. Please try again next month.",
             )
 
-        try:
-            session = await create_session(
-                db,
-                user_id=user.id,
-                candidate_name=plan.candidate_name,
-                plan_json=plan.model_dump_json(),
-                session_id=session_id,
-            )
-        except Exception:
-            # Don't strand the invite pointing at a session that was never
-            # written — release the claim so the candidate can try again.
-            await release_invite_claim(db, invite.id)
-            raise
+        # One transaction for claim + session: on failure here the claim rolls
+        # back too, so the link stays redeemable — no manual claim release.
+        session = await create_session_for_invite(
+            db,
+            session_id=session_id,
+            user_id=user.id,
+            candidate_name=plan.candidate_name,
+            plan_json=plan.model_dump_json(),
+        )
 
     return InviteStartResponse(session_id=session.id, plan=plan)
 

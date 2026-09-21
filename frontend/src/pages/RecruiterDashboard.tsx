@@ -4,8 +4,10 @@ import { listRecruiterInvites, cancelInvite, type InviteOut } from '@/api/client
 import { AppHeader } from '@/components/layout/AppHeader'
 import { recPill, statusPill, formatDate, formatDateTime, isExpired } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function RecruiterDashboard() {
+  usePageMeta("Your interviews — Aura Recruiter")
   const navigate = useNavigate()
   const [data, setData] = useState<{ invites: InviteOut[]; quota_used: number; quota_limit: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -86,7 +88,7 @@ export function RecruiterDashboard() {
           </div>
         ) : (
           <>
-            <div className="stats-bar" aria-label="Recruiter statistics">
+            <div className="stats-bar" role="group" aria-label="Recruiter statistics">
               <div className="stat-card">
                 <div className="stat-label">Monthly usage</div>
                 <div className="stat-value">{quota}</div>
@@ -115,7 +117,7 @@ export function RecruiterDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="card">
+              <div className="card table-scroll">
                 <table className="table" role="table">
                   <thead>
                     <tr>

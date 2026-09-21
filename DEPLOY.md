@@ -160,6 +160,14 @@ For local verification before touching production, run the same script against a
 
 The backend and worker are not exposed to the internet. Only the frontend container is reachable (on `127.0.0.1:3000`), and your reverse proxy handles SSL and public access.
 
+### Domain-bound configuration
+
+A few files hardcode the production domain and need updating together on a domain move:
+
+- `frontend/index.html` — the `og:image` / `twitter:image` tags point at `https://aura.techa.pro/og-image.png` (open-graph image URLs must be absolute, so this one cannot be relative).
+- `frontend/nginx-headers.conf` — the CSP allowlist pins the Sentry ingest wildcard and the `wss://*.livekit.cloud` signaling host; a different Sentry region or LiveKit project needs the matching host.
+- Per-route `canonical` values in the pages are computed from `window.location.origin`, so they follow the domain automatically — only the two files above need edits.
+
 ### Auth Flow (post PR #10)
 
 1. User clicks "Continue with Google/GitHub" on the landing page.

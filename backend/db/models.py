@@ -88,9 +88,19 @@ class InterviewInvite(Base):
     # Opaque token used in the shareable invite URL (/invite/{token})
     token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     candidate_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    # The interview session created on redemption. Kept on this table (rather
-    # than a column on interview_sessions) so existing deployments need no ALTER.
-    session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("interview_sessions.id"), nullable=True)
+    # The interview session created on redemption. A forward pointer, written
+    # by redeem_invite's atomic claim before the session row exists — so the
+    # FK is DEFERRABLE INITIALLY DEFERRED (migration d5e6f7a8b9c0): Postgres
+    # checks it at commit, after the caller's session INSERT has landed in the
+    # same transaction, instead of rejecting the claim UPDATE. Kept on this
+    # table (rather than a column on interview_sessions) so existing
+    # deployments need no ALTER.
+    session_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("interview_sessions.id", deferrable=True, initially="DEFERRED"),
+        nullable=True,
+        index=True,
+    )
     redeemed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # When the link stops being redeemable. Null means no expiry. Redemption
     # enforces it inside redeem_invite's atomic claim, not at read time.

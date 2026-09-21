@@ -5,8 +5,10 @@ import { ReportView } from '@/components/interview/ReportView'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { statusPill, formatDateTime, formatDuration } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function SessionDetail() {
+  usePageMeta("Session — Aura Admin")
   const navigate = useNavigate()
   const { sessionId } = useParams<{ sessionId: string }>()
   const [data, setData] = useState<SessionDetailData | null>(null)
@@ -100,7 +102,10 @@ export function SessionDetail() {
             <span className="lit">Admin</span>· {data.candidate_name}
             <span style={{ color: 'var(--muted-2)' }}>· {data.user_email || 'no email'}</span>
           </span>
-          <h1 className="page-h1">{data.candidate_name}</h1>
+          {/* The page's own h1: ReportView below is embedded with
+              headingLevel="h2" so the page keeps exactly one <h1> (the old
+              <p> demotion left no-report sessions with zero headings). */}
+          <h1 className="page-h1" style={{ margin: 0 }}>{data.candidate_name}</h1>
           <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
             <span className={status.cls}><span className="dot"></span>{status.text}</span>
             {data.report && (
@@ -111,7 +116,7 @@ export function SessionDetail() {
           </div>
         </header>
 
-        <div className="detail-meta" aria-label="Session metadata">
+        <div className="detail-meta" role="group" aria-label="Session metadata">
           <div>
             <div className="meta-label">Candidate</div>
             <div className="meta-value">{data.candidate_name}</div>
@@ -145,6 +150,7 @@ export function SessionDetail() {
               report={data.report}
               sessionId={data.session_id}
               onDone={() => navigate('/admin')}
+              headingLevel="h2"
             />
           </section>
         ) : (

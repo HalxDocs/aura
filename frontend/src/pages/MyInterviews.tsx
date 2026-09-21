@@ -4,8 +4,10 @@ import { listMySessions, type SessionSummary } from '@/api/client'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { recPill, statusPill, formatDate } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
+import { usePageMeta } from '@/hooks/use-page-meta';
 
 export function MyInterviews() {
+  usePageMeta("My interviews — Aura")
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)

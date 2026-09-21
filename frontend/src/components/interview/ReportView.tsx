@@ -11,6 +11,12 @@ interface ReportViewProps {
   onDone: () => void;
   /** Optional extra actions (e.g. recruiter audio/PDF downloads) shown in the action bar. */
   recruiterActions?: React.ReactNode;
+  /**
+   * "h2" when the embedding page already renders its own <h1> (session
+   * detail, invite detail, candidate report) — keeps exactly one <h1> per
+   * page for axe's page-has-heading-one / heading-order rules.
+   */
+  headingLevel?: "h1" | "h2";
 }
 
 const recPill = (rec: string) => {
@@ -23,7 +29,8 @@ const recPill = (rec: string) => {
   }
 };
 
-export function ReportView({ report, sessionId, onDone, recruiterActions }: ReportViewProps) {
+export function ReportView({ report, sessionId, onDone, recruiterActions, headingLevel = "h1" }: ReportViewProps) {
+  const HeadingTag = headingLevel;
   const [downloading, setDownloading] = useState<'pdf' | 'transcript' | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -75,11 +82,11 @@ export function ReportView({ report, sessionId, onDone, recruiterActions }: Repo
           <Link to="/" className="brand" aria-label="Aura home">
             <span className="mark" aria-hidden="true"></span><span>Aura</span>
           </Link>
-          <div className="breadcrumb" aria-label="Breadcrumb">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
             <span>Reports</span>
             <span className="sep">/</span>
             <span className="current">{report.candidate_name}</span>
-          </div>
+          </nav>
           <div className="nav-actions">
             <div className="dropdown" ref={dropdownRef} style={{ position: "relative" }}>
               <button className="btn-icon" aria-label="Download" onClick={() => setDropdownOpen(!dropdownOpen)} title="Download">
@@ -102,7 +109,7 @@ export function ReportView({ report, sessionId, onDone, recruiterActions }: Repo
       </nav>
 
       <div>
-        <main className="container">
+        <section className="container" aria-label="Interview report">
           {/* Page head */}
           <header className="page-head">
             <div>
@@ -111,7 +118,7 @@ export function ReportView({ report, sessionId, onDone, recruiterActions }: Repo
                 <span>·</span>
                 <span>{generatedDate}</span>
               </span>
-              <h1 className="page-h1">Interview <em>Result</em></h1>
+              <HeadingTag className="page-h1">Interview <em>Result</em></HeadingTag>
             </div>
             <div className="page-head-actions">
               <div className="dropdown" style={{ position: "relative" }}>
@@ -144,7 +151,7 @@ export function ReportView({ report, sessionId, onDone, recruiterActions }: Repo
                 </div>
               </div>
 
-              <div className="meta-row" aria-label="Interview metadata">
+              <div className="meta-row" role="group" aria-label="Interview metadata">
                 <div className="meta-cell">
                   <div className="meta-label">Date</div>
                   <div className="meta-value">{generatedDate}</div>
@@ -292,7 +299,7 @@ export function ReportView({ report, sessionId, onDone, recruiterActions }: Repo
             <span>© 2026 Aura · Built on LiveKit &amp; Pydantic AI</span>
             <span><Link to="/">Landing</Link></span>
           </footer>
-        </main>
+        </section>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@
 - LiveKit Cloud account
 - OpenRouter API key
 - OpenAI API key
+- Deepgram API key (optional — only if `LIVEKIT_STT_MODEL` uses the `deepgram:` prefix for streaming STT, billed to your Deepgram credits)
 - MinIO instance (for report archival) — requires `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, plus `MINIO_SECURE=true` when the endpoint uses `https://` (leave `false` for local `minio:9000` over HTTP)
 - **SendByte account** for transactional email (email verification, welcome, password reset) — requires `SENDBYTE_API_KEY`, `SENDBYTE_FROM_EMAIL`
 - **OAuth provider accounts (Google + GitHub)** for user authentication (required after PR #10)

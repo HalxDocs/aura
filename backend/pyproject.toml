@@ -32,6 +32,10 @@ dependencies = [
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "bcrypt>=5.0.0",
+    # Pinned to the locked livekit-agents version — plugin and framework must
+    # move in lockstep; a float spec would let `uv lock --upgrade` create
+    # version skew that only surfaces at runtime.
+    "livekit-plugins-deepgram==1.5.8",
 ]
 
 [dependency-groups]

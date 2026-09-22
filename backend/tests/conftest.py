@@ -6,6 +6,12 @@ import pytest_asyncio
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 os.environ.setdefault("DATABASE_PATH", ":memory:")
 os.environ.setdefault("WORKER_API_KEY", "test-worker-key")
+# The Pydantic AI agents construct their provider at import time, and the
+# OpenRouter provider refuses to build without a key — so a bare checkout
+# (no developer .env for load_dotenv() to find) fails to import any module
+# that pulls in agent.parser. Tests never call the real API (reporter_agent
+# and httpx are patched), so the key only needs to exist.
+os.environ.setdefault("OPENROUTER_API_KEY", "test-openrouter-key")
 # The suite targets the in-memory SQLite DB. Pin DATABASE_URL to an empty
 # string rather than deleting it: load_dotenv() (run by module imports, after
 # this file) only fills vars that are absent, so an empty value blocks a root

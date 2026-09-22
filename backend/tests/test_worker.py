@@ -175,6 +175,56 @@ def test_create_voice_stt_openrouter_requires_key(monkeypatch):
         worker.create_voice_stt("openrouter:deepgram/nova-3")
 
 
+def test_create_voice_stt_deepgram_prefix(monkeypatch):
+    """A deepgram: prefix streams through the Deepgram plugin, billed to DEEPGRAM_API_KEY."""
+    from agent import worker
+
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-test-key")
+    stt = worker.create_voice_stt("deepgram:nova-3")
+
+    assert isinstance(stt, worker.deepgram.STT)
+    assert stt._opts.model == "nova-3"
+    assert stt._opts.language == worker.STT_LANGUAGE
+    # Streaming is the whole point of this route: interim results must be on,
+    # so the LLM turn can start on the final transcript the moment the
+    # candidate stops speaking instead of after a batch round-trip.
+    assert stt._opts.interim_results is True
+
+
+def test_create_voice_stt_deepgram_language_hint(monkeypatch):
+    """LIVEKIT_STT_LANGUAGE feeds the plugin's language hint (e.g. multi for Nova-3)."""
+    from agent import worker
+
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-test-key")
+    monkeypatch.setattr(worker, "STT_LANGUAGE", "multi")
+    stt = worker.create_voice_stt("deepgram:nova-3")
+
+    assert stt._opts.language == "multi"
+
+
+def test_create_voice_stt_deepgram_requires_key(monkeypatch):
+    """A missing DEEPGRAM_API_KEY fails when the session is built, before any conversation."""
+    from agent import worker
+
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="DEEPGRAM_API_KEY"):
+        worker.create_voice_stt("deepgram:nova-3")
+
+
+def test_create_voice_stt_empty_model_after_prefix(monkeypatch):
+    """An empty model after the prefix (e.g. LIVEKIT_STT_MODEL=deepgram:) fails
+    when the session is built, instead of surfacing as an opaque provider 400
+    at websocket connect."""
+    from agent import worker
+
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-000")
+    with pytest.raises(ValueError, match="no model follows it"):
+        worker.create_voice_stt("deepgram:")
+    with pytest.raises(ValueError, match="no model follows it"):
+        worker.create_voice_stt("openrouter:")
+
+
 def test_assistant_transcript_text_extracts_string_content():
     """Assistant items yield their text via text_content (str content parts).
 

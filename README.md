@@ -102,8 +102,10 @@ The app is served on `127.0.0.1:3000`. Point a reverse proxy (Caddy/nginx) with 
 | `REASONING_MODEL` | Model for all reasoning agents, pydantic-ai format (default: `openrouter:google/gemini-2.0-flash-001`) |
 | `PARSER_MODEL` / `EVALUATOR_MODEL` / `REPORTER_MODEL` / `PROFILE_MODEL` | Per-agent override of `REASONING_MODEL` (same format; optional) |
 | `OPENAI_API_KEY` | LiveKit plugins (STT, LLM, TTS) |
+| `DEEPGRAM_API_KEY` | Deepgram streaming STT (required only when `LIVEKIT_STT_MODEL` uses the `deepgram:` prefix) |
 | `LIVEKIT_LLM_MODEL` | Voice-pipeline LLM, the interviewer's conversation model (default: `openai/gpt-4o-mini`). Prefix with `openrouter:` (e.g. `openrouter:google/gemini-2.0-flash-001`) to bill tokens to your OpenRouter credits instead of LiveKit Inference |
-| `LIVEKIT_STT_MODEL` | STT model (default: `deepgram/nova-3`). Prefix with `openrouter:` to transcribe via OpenRouter's OpenAI-compatible endpoint (billed to OpenRouter; batch per VAD utterance, no streaming interim results, language auto-detected) |
+| `LIVEKIT_STT_MODEL` | STT model (default: `deepgram/nova-3`). Prefix with `deepgram:` to stream via the Deepgram plugin (billed to `DEEPGRAM_API_KEY`; streaming interim results, lowest conversational latency) or `openrouter:` to transcribe via OpenRouter's OpenAI-compatible endpoint (billed to OpenRouter; batch per VAD utterance, no streaming interim results, language auto-detected) |
+| `LIVEKIT_STT_LANGUAGE` | Language hint for the `deepgram:` STT route (default: `en`; `multi` unlocks Nova-3's multilingual model) |
 | `LIVEKIT_TTS_MODEL` | LiveKit Inference TTS model (default: `fishaudio/s2.1-pro-free`) |
 | `LIVEKIT_TTS_VOICE` | Fish Audio voice ID used by the realtime interviewer |
 | `LIVEKIT_TTS_LANGUAGE` | TTS language (default: `en`) |

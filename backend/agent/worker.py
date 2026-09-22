@@ -24,6 +24,7 @@ from livekit.agents import (
 )
 from livekit.agents.telemetry import set_tracer_provider
 from livekit.plugins import openai as livekit_openai
+from livekit.plugins import deepgram
 from livekit.plugins import silero
 from opentelemetry import trace as otel_trace
 from models.schemas import InterviewPlan, FinalReport
@@ -54,6 +55,10 @@ logger.setLevel(logging.INFO)
 # without modifying the worker image. Fish Audio's free model is the default TTS.
 # LIVEKIT_LLM_MODEL (voice-pipeline LLM) is resolved in utils/config.py.
 STT_MODEL = os.getenv("LIVEKIT_STT_MODEL", "deepgram/nova-3")
+# Language hint for the Deepgram streaming STT route (plugin ignores it on
+# other routes; OpenRouter auto-detects). "multi" unlocks Nova-3's
+# multilingual model.
+STT_LANGUAGE = os.getenv("LIVEKIT_STT_LANGUAGE", "en")
 TTS_MODEL = os.getenv("LIVEKIT_TTS_MODEL", "fishaudio/s2.1-pro-free")
 TTS_VOICE = os.getenv("LIVEKIT_TTS_VOICE", "9a9cf47702da476aa4629e2506d4a857")
 TTS_LANGUAGE = os.getenv("LIVEKIT_TTS_LANGUAGE", "en")
@@ -78,14 +83,42 @@ def create_voice_llm(model: str):
 def create_voice_stt(model: str):
     """Build the voice-pipeline STT for the AgentSession.
 
-    An ``openrouter:<model>`` value (e.g. ``openrouter:deepgram/nova-3``) sends
-    audio to OpenRouter's OpenAI-compatible ``/audio/transcriptions`` endpoint,
+    A ``deepgram:<model>`` value (e.g. ``deepgram:nova-3``) talks to Deepgram's
+    streaming websocket API through the Deepgram plugin, billed to
+    DEEPGRAM_API_KEY. Streaming is what keeps conversational latency low:
+    interim transcripts arrive while the candidate is still speaking, and the
+    final result is ready almost immediately after they stop — unlike the
+    OpenRouter route below, which batches each VAD utterance and only then
+    starts the LLM. The interview transcript only records ``is_final`` events,
+    so interim results cost nothing extra downstream.
+
+    An ``openrouter:<model>`` value (e.g. ``openrouter:openai/whisper-large-v3-turbo``)
+    sends audio to OpenRouter's OpenAI-compatible ``/audio/transcriptions`` endpoint,
     billed to OPENROUTER_API_KEY credits instead of LiveKit Inference. OpenRouter
     transcribes per VAD-detected utterance rather than streaming, so final
     transcripts arrive after the candidate stops speaking instead of progressively.
-    Unprefixed strings stay on LiveKit Inference with streaming interim results.
     Language is auto-detected by OpenRouter.
+
+    Unprefixed strings stay on LiveKit Inference with streaming interim results.
     """
+    if model.startswith("deepgram:"):
+        api_key = os.getenv("DEEPGRAM_API_KEY", "").strip()
+        if not api_key:
+            raise ValueError(
+                "LIVEKIT_STT_MODEL uses the deepgram: prefix, "
+                "but DEEPGRAM_API_KEY is not set"
+            )
+        stt_model = model.split(":", 1)[1].strip()
+        if not stt_model:
+            raise ValueError(
+                "LIVEKIT_STT_MODEL uses the deepgram: prefix, "
+                "but no model follows it (e.g. deepgram:nova-3)"
+            )
+        return deepgram.STT(
+            model=stt_model,
+            api_key=api_key,
+            language=STT_LANGUAGE,
+        )
     if model.startswith("openrouter:"):
         api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
         if not api_key:
@@ -93,8 +126,14 @@ def create_voice_stt(model: str):
                 "LIVEKIT_STT_MODEL uses the openrouter: prefix, "
                 "but OPENROUTER_API_KEY is not set"
             )
+        stt_model = model.split(":", 1)[1].strip()
+        if not stt_model:
+            raise ValueError(
+                "LIVEKIT_STT_MODEL uses the openrouter: prefix, "
+                "but no model follows it (e.g. openrouter:openai/whisper-large-v3-turbo)"
+            )
         return livekit_openai.STT(
-            model=model.split(":", 1)[1],
+            model=stt_model,
             base_url=OPENROUTER_BASE_URL,
             api_key=api_key,
             detect_language=True,

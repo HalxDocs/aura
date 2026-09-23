@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listAdminSessions, type SessionSummary } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { recPill, statusPill, formatDate } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
@@ -107,13 +107,9 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="admin" />
-
-      <main className="container">
+    <PageShell active="admin">
+      <div className="aura-dashboard-page">
+      <div className="container">
         <header className="page-head">
           <span className="page-eyebrow"><span className="lit">Admin</span>· Dashboard</span>
           <h1 className="page-h1">All <em>interviews</em></h1>
@@ -233,7 +229,8 @@ export function AdminDashboard() {
             </div>
           </>
         )}
-      </main>
-    </div>
+      </div>
+      </div>
+    </PageShell>
   )
 }

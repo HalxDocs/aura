@@ -8,7 +8,7 @@ import {
   type ExperienceEntry,
   type EducationEntry,
 } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiErrorMessage } from '@/api/client'
 import { mergeParsedIntoProfile, parsedHasContent, isBlankExperience, isBlankEducation, type ProfileFormState } from '@/lib/profile-utils'
@@ -18,16 +18,6 @@ import '@/styles/aura-pre.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
 const MAX_SKILLS = 30
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: 8,
-  padding: '12px 14px',
-  color: 'inherit',
-  fontSize: 14,
-}
 
 export function CandidateProfile() {
   usePageMeta("Candidate profile — Aura")
@@ -77,30 +67,24 @@ export function CandidateProfile() {
 
   if (loading) {
     return (
-      <div className="aura-pre-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="loading-state" role="status" aria-live="polite">
             <div className="spinner" aria-hidden="true"></div>
             <span>Loading profile…</span>
           </div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   if (!form) {
     return (
-      <div className="aura-pre-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="error-banner" role="alert">{parseError ?? 'Profile unavailable.'}</div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
@@ -247,220 +231,223 @@ export function CandidateProfile() {
   }
 
   return (
-    <div className="aura-pre-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
+    <PageShell active="profile">
+      <div className="aura-pre-page">
+        <div className="container" style={{ maxWidth: 1080 }}>
+          <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Candidate profile</span>
+          <h1 className="h1">Your <em>profile.</em></h1>
+          <p className="lede">
+            This powers your interviews: Aura uses your skills and resume to ask sharper questions,
+            and recruiters see who they're talking to. Upload your resume to autofill the form.
+          </p>
 
-      <AppHeader active="profile" />
+          <form onSubmit={submit}>
+            <div className="form-grid">
+              {/* Left column: identity + links — the "who you are" half. */}
+              <article className="card">
+                <div className="card-body" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label-row" htmlFor="cp-headline">Headline</label>
+                    <input
+                      id="cp-headline"
+                      type="text"
+                      placeholder="e.g. Senior Backend Engineer | Python, Go"
+                      value={form.headline}
+                      onChange={e => set('headline', e.target.value)}
+                      maxLength={200}
+                    />
+                  </div>
 
-      <main className="container" style={{ maxWidth: 860 }}>
-        <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Candidate profile</span>
-        <h1 className="h1">Your <em>profile.</em></h1>
-        <p className="lede">
-          This powers your interviews: Aura uses your skills and resume to ask sharper questions,
-          and recruiters see who they're talking to. Upload your resume to autofill the form.
-        </p>
+                  <div className="field">
+                    <label className="label-row" htmlFor="cp-location">Location</label>
+                    <input
+                      id="cp-location"
+                      type="text"
+                      placeholder="e.g. Berlin, Germany (open to remote)"
+                      value={form.location}
+                      onChange={e => set('location', e.target.value)}
+                      maxLength={120}
+                    />
+                  </div>
 
-        <form onSubmit={submit}>
-          <article className="card">
-            <div className="card-body">
-              <div>
-                <label className="label-row" htmlFor="cp-headline">Headline</label>
-                <input
-                  id="cp-headline"
-                  type="text"
-                  placeholder="e.g. Senior Backend Engineer | Python, Go"
-                  value={form.headline}
-                  onChange={e => set('headline', e.target.value)}
-                  maxLength={200}
-                  style={inputStyle}
-                />
-              </div>
+                  <div className="field">
+                    <label className="label-row" htmlFor="cp-summary">Summary</label>
+                    <textarea
+                      id="cp-summary"
+                      placeholder="A few sentences about your experience, what you're strong at, and what you're looking for."
+                      value={form.summary}
+                      onChange={e => set('summary', e.target.value)}
+                      rows={4}
+                      maxLength={4000}
+                      style={{ resize: 'vertical' }}
+                    />
+                  </div>
 
-              <div>
-                <label className="label-row" htmlFor="cp-location">Location</label>
-                <input
-                  id="cp-location"
-                  type="text"
-                  placeholder="e.g. Berlin, Germany (open to remote)"
-                  value={form.location}
-                  onChange={e => set('location', e.target.value)}
-                  maxLength={120}
-                  style={inputStyle}
-                />
-              </div>
+                  <div className="field">
+                    <label className="label-row" htmlFor="cp-skill">Skills <span style={{ opacity: 0.55 }}>({form.skills.length} / {MAX_SKILLS})</span></label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        id="cp-skill"
+                        type="text"
+                        placeholder="Type a skill and press Enter"
+                        value={skillDraft}
+                        onChange={e => setSkillDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            addSkill()
+                          }
+                        }}
+                        maxLength={60}
+                      />
+                      <button type="button" className="btn btn-ghost" onClick={addSkill}>Add</button>
+                    </div>
+                    {form.skills.length > 0 && (
+                      <div className="skill-tags" style={{ marginTop: 10 }}>
+                        {form.skills.map(skill => (
+                          <button
+                            key={skill}
+                            type="button"
+                            className="skill-tag"
+                            onClick={() => removeSkill(skill)}
+                            aria-label={`Remove skill ${skill}`}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {skill} ✕
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-              <div>
-                <label className="label-row" htmlFor="cp-summary">Summary</label>
-                <textarea
-                  id="cp-summary"
-                  placeholder="A few sentences about your experience, what you're strong at, and what you're looking for."
-                  value={form.summary}
-                  onChange={e => set('summary', e.target.value)}
-                  rows={4}
-                  maxLength={4000}
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                />
-              </div>
-
-              <div>
-                <label className="label-row" htmlFor="cp-skill">Skills <span style={{ opacity: 0.55 }}>({form.skills.length} / {MAX_SKILLS})</span></label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    id="cp-skill"
-                    type="text"
-                    placeholder="Type a skill and press Enter"
-                    value={skillDraft}
-                    onChange={e => setSkillDraft(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        addSkill()
-                      }
-                    }}
-                    maxLength={60}
-                    style={inputStyle}
-                  />
-                  <button type="button" className="btn btn-ghost" onClick={addSkill} style={{ height: 42 }}>Add</button>
+                  <div className="field">
+                    <div className="label-row">Links</div>
+                    <input
+                      type="url"
+                      placeholder="LinkedIn profile (https://…)"
+                      value={form.linkedin_url ?? ''}
+                      onChange={e => set('linkedin_url', e.target.value || null)}
+                      maxLength={512}
+                      aria-label="LinkedIn URL"
+                      style={{ marginBottom: 10 }}
+                    />
+                    <input
+                      type="url"
+                      placeholder="GitHub profile (https://…)"
+                      value={form.github_url ?? ''}
+                      onChange={e => set('github_url', e.target.value || null)}
+                      maxLength={512}
+                      aria-label="GitHub URL"
+                      style={{ marginBottom: 10 }}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Portfolio / personal site (https://…)"
+                      value={form.portfolio_url ?? ''}
+                      onChange={e => set('portfolio_url', e.target.value || null)}
+                      maxLength={512}
+                      aria-label="Portfolio URL"
+                    />
+                  </div>
                 </div>
-                {form.skills.length > 0 && (
-                  <div className="skill-tags" style={{ marginTop: 10 }}>
-                    {form.skills.map(skill => (
-                      <button
-                        key={skill}
-                        type="button"
-                        className="skill-tag"
-                        onClick={() => removeSkill(skill)}
-                        aria-label={`Remove skill ${skill}`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {skill} ✕
-                      </button>
+              </article>
+
+              {/* Right column: history + resume — the "what you've done" half. */}
+              <div style={{ display: 'grid', gap: 16 }}>
+                <article className="card">
+                  <div className="card-body" style={{ gap: 12 }}>
+                    <div className="label-row">Experience</div>
+                    {form.experience.map((entry, idx) => (
+                      <div key={idx} className="entry">
+                        <div className="entry-head">
+                          <span className="entry-title">{entry.title || `Entry ${idx + 1}`}</span>
+                          <span className="entry-sub">{[entry.title, entry.company].filter(Boolean).join(' · ') || 'Empty'}</span>
+                          <button type="button" className="btn btn-ghost btn-sm entry-remove" onClick={() => removeExperience(idx)}>Remove</button>
+                        </div>
+                        <div className="field-row">
+                          <input type="text" placeholder="Job title" value={entry.title} onChange={e => updateExperience(idx, { title: e.target.value })} maxLength={120} aria-label={`Job title (position ${idx + 1})`} />
+                          <input type="text" placeholder="Company" value={entry.company} onChange={e => updateExperience(idx, { company: e.target.value })} maxLength={120} aria-label={`Company (position ${idx + 1})`} />
+                        </div>
+                        <div className="field-row">
+                          <input type="text" placeholder="Start (e.g. 2022-03)" value={entry.start} onChange={e => updateExperience(idx, { start: e.target.value })} maxLength={40} aria-label={`Start date (position ${idx + 1})`} />
+                          <input type="text" placeholder="End (or 'Present')" value={entry.end} onChange={e => updateExperience(idx, { end: e.target.value })} maxLength={40} aria-label={`End date (position ${idx + 1})`} />
+                        </div>
+                        <textarea placeholder="What you built, led, or owned" value={entry.description} onChange={e => updateExperience(idx, { description: e.target.value })} rows={2} maxLength={2000} style={{ resize: 'vertical', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '11px 13px', color: 'inherit', font: 'inherit', fontSize: 14 }} aria-label={`Description (position ${idx + 1})`} />
+                      </div>
                     ))}
+                    <button type="button" className="btn btn-ghost" onClick={addExperience}>+ Add experience</button>
                   </div>
-                )}
+                </article>
+
+                <article className="card">
+                  <div className="card-body" style={{ gap: 12 }}>
+                    <div className="label-row">Education</div>
+                    {form.education.map((entry, idx) => (
+                      <div key={idx} className="entry">
+                        <div className="entry-head">
+                          <span className="entry-title">{entry.school || `Entry ${idx + 1}`}</span>
+                          <span className="entry-sub">{[entry.degree, entry.field].filter(Boolean).join(' · ') || 'Empty'}</span>
+                          <button type="button" className="btn btn-ghost btn-sm entry-remove" onClick={() => removeEducation(idx)}>Remove</button>
+                        </div>
+                        <div className="field-row">
+                          <input type="text" placeholder="School" value={entry.school} onChange={e => updateEducation(idx, { school: e.target.value })} maxLength={160} aria-label={`School (education ${idx + 1})`} />
+                          <input type="text" placeholder="Degree" value={entry.degree} onChange={e => updateEducation(idx, { degree: e.target.value })} maxLength={160} aria-label={`Degree (education ${idx + 1})`} />
+                        </div>
+                        <div className="field-row-3">
+                          <input type="text" placeholder="Field" value={entry.field} onChange={e => updateEducation(idx, { field: e.target.value })} maxLength={160} aria-label={`Field of study (education ${idx + 1})`} />
+                          <input type="text" placeholder="Start" value={entry.start} onChange={e => updateEducation(idx, { start: e.target.value })} maxLength={40} aria-label={`Start year (education ${idx + 1})`} />
+                          <input type="text" placeholder="End" value={entry.end} onChange={e => updateEducation(idx, { end: e.target.value })} maxLength={40} aria-label={`End year (education ${idx + 1})`} />
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-ghost" onClick={addEducation}>+ Add education</button>
+                  </div>
+                </article>
+
+                <article className="card">
+                  <div className="card-body" style={{ gap: 12 }}>
+                    <div className="label-row">Resume</div>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
+                      {resumeStored
+                        ? 'A resume is on file — you can start interviews without re-uploading. Upload again to replace it and re-run autofill.'
+                        : 'Upload your resume to autofill this profile and start interviews without re-uploading.'}
+                    </p>
+                    <label className="dropzone" data-has-file={resumeStored}>
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept=".pdf"
+                        disabled={parsing}
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (file) handleResume(file)
+                        }}
+                      />
+                      <div className="title">{parsing ? 'Parsing your resume…' : resumeStored ? 'Resume on file' : 'Upload resume (PDF)'}</div>
+                      <div className="hint">max 10 MB · text-based PDF works best</div>
+                      {resumeStored && <div className="filename">✓ resume.pdf stored</div>}
+                    </label>
+                    {parseError && <div className="error-banner" role="alert" style={{ margin: 0 }}>{parseError}</div>}
+                  </div>
+                </article>
               </div>
-
-              <div>
-                <div className="label-row">Links</div>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <input
-                    type="url"
-                    placeholder="LinkedIn profile (https://…)"
-                    value={form.linkedin_url ?? ''}
-                    onChange={e => set('linkedin_url', e.target.value || null)}
-                    maxLength={512}
-                    style={inputStyle}
-                    aria-label="LinkedIn URL"
-                  />
-                  <input
-                    type="url"
-                    placeholder="GitHub profile (https://…)"
-                    value={form.github_url ?? ''}
-                    onChange={e => set('github_url', e.target.value || null)}
-                    maxLength={512}
-                    style={inputStyle}
-                    aria-label="GitHub URL"
-                  />
-                  <input
-                    type="url"
-                    placeholder="Portfolio / personal site (https://…)"
-                    value={form.portfolio_url ?? ''}
-                    onChange={e => set('portfolio_url', e.target.value || null)}
-                    maxLength={512}
-                    style={inputStyle}
-                    aria-label="Portfolio URL"
-                  />
-                </div>
-              </div>
             </div>
-          </article>
 
-          <article className="card" style={{ marginTop: 20 }}>
-            <div className="card-body">
-              <div className="label-row">Experience</div>
-              {form.experience.map((entry, idx) => (
-                <div key={idx} style={{ border: '1px solid rgba(255,255,255,0.10)', borderRadius: 10, padding: 16, display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <input type="text" placeholder="Job title" value={entry.title} onChange={e => updateExperience(idx, { title: e.target.value })} maxLength={120} style={inputStyle} aria-label={`Job title (position ${idx + 1})`} />
-                    <input type="text" placeholder="Company" value={entry.company} onChange={e => updateExperience(idx, { company: e.target.value })} maxLength={120} style={inputStyle} aria-label={`Company (position ${idx + 1})`} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <input type="text" placeholder="Start (e.g. 2022-03)" value={entry.start} onChange={e => updateExperience(idx, { start: e.target.value })} maxLength={40} style={inputStyle} aria-label={`Start date (position ${idx + 1})`} />
-                    <input type="text" placeholder="End (or 'Present')" value={entry.end} onChange={e => updateExperience(idx, { end: e.target.value })} maxLength={40} style={inputStyle} aria-label={`End date (position ${idx + 1})`} />
-                  </div>
-                  <textarea placeholder="What you built, led, or owned" value={entry.description} onChange={e => updateExperience(idx, { description: e.target.value })} rows={2} maxLength={2000} style={{ ...inputStyle, resize: 'vertical' }} aria-label={`Description (position ${idx + 1})`} />
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn btn-ghost" onClick={() => removeExperience(idx)}>Remove</button>
-                  </div>
-                </div>
-              ))}
-              <button type="button" className="btn btn-ghost" onClick={addExperience}>+ Add experience</button>
+            {saveError && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{saveError}</div>}
+
+            {/* Sticky: the primary action stays reachable no matter how far
+                the user has scrolled into the repeatable entries. */}
+            <div className="save-bar">
+              <Link to={user?.role === '' ? '/choose-role' : '/dashboard'} className="btn btn-ghost">Back</Link>
+              <span style={{ flex: 1 }} />
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? <><span className="spinner" /> Saving…</> : 'Save profile'}
+              </button>
             </div>
-          </article>
-
-          <article className="card" style={{ marginTop: 20 }}>
-            <div className="card-body">
-              <div className="label-row">Education</div>
-              {form.education.map((entry, idx) => (
-                <div key={idx} style={{ border: '1px solid rgba(255,255,255,0.10)', borderRadius: 10, padding: 16, display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <input type="text" placeholder="School" value={entry.school} onChange={e => updateEducation(idx, { school: e.target.value })} maxLength={160} style={inputStyle} aria-label={`School (education ${idx + 1})`} />
-                    <input type="text" placeholder="Degree" value={entry.degree} onChange={e => updateEducation(idx, { degree: e.target.value })} maxLength={160} style={inputStyle} aria-label={`Degree (education ${idx + 1})`} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                    <input type="text" placeholder="Field" value={entry.field} onChange={e => updateEducation(idx, { field: e.target.value })} maxLength={160} style={inputStyle} aria-label={`Field of study (education ${idx + 1})`} />
-                    <input type="text" placeholder="Start" value={entry.start} onChange={e => updateEducation(idx, { start: e.target.value })} maxLength={40} style={inputStyle} aria-label={`Start year (education ${idx + 1})`} />
-                    <input type="text" placeholder="End" value={entry.end} onChange={e => updateEducation(idx, { end: e.target.value })} maxLength={40} style={inputStyle} aria-label={`End year (education ${idx + 1})`} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn btn-ghost" onClick={() => removeEducation(idx)}>Remove</button>
-                  </div>
-                </div>
-              ))}
-              <button type="button" className="btn btn-ghost" onClick={addEducation}>+ Add education</button>
-            </div>
-          </article>
-
-          <article className="card" style={{ marginTop: 20 }}>
-            <div className="card-body">
-              <div className="label-row">Resume</div>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-                {resumeStored
-                  ? 'A resume is on file — you can start interviews without re-uploading. Upload again to replace it and re-run autofill.'
-                  : 'Upload your resume to autofill this profile and start interviews without re-uploading.'}
-              </p>
-              <label className="dropzone" data-has-file={resumeStored}>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".pdf"
-                  disabled={parsing}
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) handleResume(file)
-                  }}
-                />
-                <div className="title">{parsing ? 'Parsing your resume…' : resumeStored ? 'Resume on file' : 'Upload resume (PDF)'}</div>
-                <div className="hint">max 10 MB · text-based PDF works best</div>
-                {resumeStored && <div className="filename">✓ resume.pdf stored</div>}
-              </label>
-              {parseError && <div className="error-banner" role="alert">{parseError}</div>}
-            </div>
-          </article>
-
-          {saveError && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{saveError}</div>}
-
-          <div className="btn-row" style={{ marginTop: 20, marginBottom: 60 }}>
-            <Link to={user?.role === '' ? '/choose-role' : '/interview'} className="btn btn-ghost">Back</Link>
-            <span style={{ flex: 1 }} />
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <><span className="spinner" /> Saving…</> : 'Save profile'}
-            </button>
-          </div>
-        </form>
-      </main>
+          </form>
+        </div>
+      </div>
       <Toaster />
-    </div>
+    </PageShell>
   )
 }

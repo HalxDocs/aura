@@ -19,30 +19,51 @@ import { InviteInterview } from './pages/InviteInterview'
 import { NotFound } from './pages/NotFound'
 import { CandidateProfile } from './pages/CandidateProfile'
 import { RecruiterProfile } from './pages/RecruiterProfile'
+import { CandidateDashboard } from './pages/CandidateDashboard'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
-
 function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public marketing world — anonymous-only; logged-in users are
+            redirected into the app by Landing itself. */}
         <Route path="/" element={<Landing />} />
+
+        {/* Auth world (own centered layout, no app chrome). */}
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-<Route path="/login" element={<LoginPage />} />
         <Route path="/auth/verified" element={<EmailVerified />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/choose-role" element={<ProtectedRoute><RolePicker /></ProtectedRoute>} />
-        <Route path="/recruiter" element={<ProtectedRoute requireRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />
-        <Route path="/recruiter/new" element={<ProtectedRoute requireRole="recruiter"><InviteBuilder /></ProtectedRoute>} />
-        <Route path="/recruiter/invites/:inviteId" element={<ProtectedRoute requireRole="recruiter"><InviteDetail /></ProtectedRoute>} />
-        <Route path="/invite/:token" element={<InviteInterview />} />
+
+        {/* Candidate flow pages: the live interview owns the whole screen
+            (arena HUD), the flow steps use the minimal header. */}
         <Route path="/interview" element={<ProtectedRoute><InterviewFlow /></ProtectedRoute>} />
-        <Route path="/profile/candidate" element={<ProtectedRoute><CandidateProfile /></ProtectedRoute>} />
-        <Route path="/profile/recruiter" element={<ProtectedRoute requireRole="recruiter"><RecruiterProfile /></ProtectedRoute>} />
-        <Route path="/my-interviews" element={<ProtectedRoute><MyInterviews /></ProtectedRoute>} />
-        <Route path="/my-interviews/:sessionId" element={<ProtectedRoute><CandidateSessionReport /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/session/:sessionId" element={<ProtectedRoute requireAdmin><SessionDetail /></ProtectedRoute>} />
+        {/* Standalone candidate page reached while logged out of the app. */}
+        <Route path="/invite/:token" element={<InviteInterview />} />
+
+        {/* App world — every page below renders inside its own PageShell
+            (one header, one footer, one backdrop). The shell lives at the
+            page, not a layout route, because each page passes its own
+            `active` nav highlight. */}
+        <Route path="/dashboard" element={<ProtectedRoute><CandidateDashboard /></ProtectedRoute>} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/my-interviews" element={<MyInterviews />} />
+          <Route path="/my-interviews/:sessionId" element={<CandidateSessionReport />} />
+          <Route path="/choose-role" element={<RolePicker />} />
+          <Route path="/profile/candidate" element={<CandidateProfile />} />
+        </Route>
+        <Route element={<ProtectedRoute requireRole="recruiter" />}>
+          <Route path="/recruiter" element={<RecruiterDashboard />} />
+          <Route path="/recruiter/new" element={<InviteBuilder />} />
+          <Route path="/recruiter/invites/:inviteId" element={<InviteDetail />} />
+          <Route path="/profile/recruiter" element={<RecruiterProfile />} />
+        </Route>
+        <Route element={<ProtectedRoute requireAdmin />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/session/:sessionId" element={<SessionDetail />} />
+        </Route>
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>

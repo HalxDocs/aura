@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { setUserRole } from '@/api/client'
+import { PageShell } from '@/components/layout/PageShell'
 import '@/styles/aura-pre.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
@@ -54,11 +55,9 @@ export function RolePicker() {
   const current = user?.role
 
   return (
-    <div className="aura-pre-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <main className="container" style={{ maxWidth: 760 }}>
+    <PageShell hideLinks>
+      <div className="aura-pre-page">
+        <div className="container" style={{ maxWidth: 760 }}>
         <span className="eyebrow"><span className="dot" aria-hidden="true"></span>{switching ? 'Switch mode' : 'Welcome to Aura'}</span>
         <h1 className="h1">How will you <em>use Aura?</em></h1>
         <p className="lede">
@@ -71,7 +70,7 @@ export function RolePicker() {
           <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{error}</div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+        <div className="role-grid">
           <article className="card" style={{ margin: 0 }}>
             <div className="card-body">
               <span className="eyebrow"><span className="dot" aria-hidden="true"></span>For myself</span>
@@ -120,7 +119,8 @@ export function RolePicker() {
         <p style={{ marginTop: 20, fontSize: 13, opacity: 0.6 }}>
           Signed in as {user?.email} · <Link to="/" style={{ color: 'inherit' }}>Back to home</Link>
         </p>
-      </main>
-    </div>
+        </div>
+      </div>
+    </PageShell>
   )
 }

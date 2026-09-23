@@ -7,7 +7,7 @@
   --surface: rgba(255,255,255,0.03); --surface-2: rgba(255,255,255,0.05);
   --border: #27272a; --border-soft: rgba(255,255,255,0.06);
   --fg: #fafafa; --fg-2: #e4e4e7; --muted: #a1a1aa; --muted-2: #8e8e99;
-  --accent: #6063ef; --accent-2: #818cf8; --accent-deep: #4338ca; --success: #10b981;
+  --accent: #6063ef; --accent-2: #818cf8; --accent-3: #a5b4fc; --accent-deep: #4338ca; --success: #10b981;
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -245,25 +245,28 @@
   transition: transform 0.4s cubic-bezier(.2, .7, .2, 1);
 }
 
-/* Scroll reveal */
-.aura-landing-page .reveal {
+/* Scroll reveal — armed only under .js-reveal (added by Landing's effect
+   right before it observes). Without JS everything below stays visible:
+   the old unconditional opacity:0 rendered the whole lower page as a black
+   void in crawlers, no-JS browsers, and full-page captures. */
+.js-reveal .reveal {
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.7s cubic-bezier(.2, .7, .2, 1), transform 0.7s cubic-bezier(.2, .7, .2, 1);
 }
-.aura-landing-page .reveal.is-in {
+.js-reveal .reveal.is-in {
   opacity: 1;
   transform: translateY(0);
 }
-.aura-landing-page .reveal-stagger > * {
+.js-reveal .reveal-stagger > * {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.7s cubic-bezier(.2, .7, .2, 1), transform 0.7s cubic-bezier(.2, .7, .2, 1);
 }
-.aura-landing-page .reveal-stagger.is-in > *:nth-child(1) { transition-delay: 0ms; opacity: 1; transform: none; }
-.aura-landing-page .reveal-stagger.is-in > *:nth-child(2) { transition-delay: 100ms; opacity: 1; transform: none; }
-.aura-landing-page .reveal-stagger.is-in > *:nth-child(3) { transition-delay: 200ms; opacity: 1; transform: none; }
-.aura-landing-page .reveal-stagger.is-in > *:nth-child(4) { transition-delay: 300ms; opacity: 1; transform: none; }
+.js-reveal .reveal-stagger.is-in > *:nth-child(1) { transition-delay: 0ms; opacity: 1; transform: none; }
+.js-reveal .reveal-stagger.is-in > *:nth-child(2) { transition-delay: 100ms; opacity: 1; transform: none; }
+.js-reveal .reveal-stagger.is-in > *:nth-child(3) { transition-delay: 200ms; opacity: 1; transform: none; }
+.js-reveal .reveal-stagger.is-in > *:nth-child(4) { transition-delay: 300ms; opacity: 1; transform: none; }
 
 /* 3D card hover tilt */
 .aura-landing-page .bento { perspective: 1200px; }
@@ -305,9 +308,9 @@
 .aura-landing-page .orb-status[data-state="thinking"] .pulse { background: var(--accent-2); box-shadow: 0 0 0 2px rgba(99,102,241,0.18), 0 0 10px rgba(99,102,241,0.6); }
 .aura-landing-page .orb-status[data-state="speaking"] .pulse { background: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.25), 0 0 12px rgba(99,102,241,0.8); }
 
-/* Smooth scroll for anchor jumps */
+/* Smooth scroll for anchor jumps (page-scoped; a global html rule here
+   hijacked every other page's scroll behavior). */
 .aura-landing-page { scroll-behavior: smooth; }
-html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   .aura-landing-page .cursor-spotlight,

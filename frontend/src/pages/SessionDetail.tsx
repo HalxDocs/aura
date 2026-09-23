@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getAdminSessionDetail, type SessionDetail as SessionDetailData, type TranscriptEntryRead } from '@/api/client'
 import { ReportView } from '@/components/interview/ReportView'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { statusPill, formatDateTime, formatDuration } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
@@ -44,11 +44,8 @@ export function SessionDetail() {
 
   if (error) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader hideLinks />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="page-head">
             <span className="page-eyebrow"><span className="lit">Admin</span>· Session</span>
             <h1 className="page-h1">Session not available</h1>
@@ -57,24 +54,21 @@ export function SessionDetail() {
           <Link to="/admin" className="btn btn-ghost" style={{ marginTop: 12 }}>
             ← Back to admin dashboard
           </Link>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   if (!data) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader hideLinks />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="loading-state" role="status" aria-live="polite">
             <div className="spinner" aria-hidden="true"></div>
             <span>Loading session…</span>
           </div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
@@ -83,13 +77,8 @@ export function SessionDetail() {
   // transcript and metadata beneath.
   const status = statusPill(data.status)
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="admin" />
-
-      <main className="container">
+    <PageShell active="admin">
+      <div className="container">
         <Link to="/admin" className="back-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"/>
@@ -150,6 +139,8 @@ export function SessionDetail() {
               report={data.report}
               sessionId={data.session_id}
               onDone={() => navigate('/admin')}
+              doneLabel="Back to admin dashboard"
+              completedAt={data.completed_at}
               headingLevel="h2"
             />
           </section>
@@ -191,7 +182,7 @@ export function SessionDetail() {
             </div>
           </section>
         ) : null}
-      </main>
-    </div>
+      </div>
+    </PageShell>
   )
 }

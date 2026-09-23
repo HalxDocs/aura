@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PageShell } from '@/components/layout/PageShell'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
@@ -6,19 +7,8 @@ import { usePageMeta } from '@/hooks/use-page-meta';
 export function NotFound() {
   usePageMeta("Page not found — Aura", { noindex: true })
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <nav className="nav" aria-label="Primary">
-        <div className="nav-row">
-          <Link to="/" className="brand" aria-label="Aura home">
-            <span className="mark" aria-hidden="true"></span><span>Aura</span>
-          </Link>
-        </div>
-      </nav>
-
-      <main className="container" style={{ paddingTop: 96, paddingBottom: 96 }}>
+    <PageShell>
+      <div className="container" style={{ paddingTop: 96, paddingBottom: 96 }}>
         <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
           <span
             className="page-eyebrow"
@@ -45,7 +35,7 @@ export function NotFound() {
             </Link>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </PageShell>
   )
 }

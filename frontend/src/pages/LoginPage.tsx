@@ -46,7 +46,7 @@ export function LoginPage() {
     } else if (user.role === '') {
       navigate('/choose-role', { replace: true });
     } else {
-      navigate('/interview', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   };
 

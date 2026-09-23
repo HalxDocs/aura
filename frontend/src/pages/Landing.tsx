@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import '@/styles/aura-landing.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
@@ -12,6 +12,19 @@ const ORB_STATES = [
 
 export function Landing() {
   usePageMeta("Aura — AI Interviewer: Real-Time Voice Interviews", { description: "Upload a resume, have a live voice interview with an AI interviewer, and get a structured hiring report with scores and a recommendation.", canonical: window.location.origin + "/" })
+  const navigate = useNavigate()
+  const { user, mode, loading } = useAuth()
+  const signedIn = !!user && !loading
+
+  // The marketing page is anonymous-only: app links grafted into it used to
+  // compete with the sales CTAs (and signed-in users landed on a sales pitch
+  // instead of their workspace). Wait for auth to resolve so a refresh with a
+  // valid token doesn't flash the marketing page before the redirect.
+  useEffect(() => {
+    if (!signedIn) return
+    navigate(mode === 'recruiter' ? '/recruiter' : '/dashboard', { replace: true })
+  }, [signedIn, mode, navigate])
+
   const pageRef = useRef<HTMLDivElement>(null)
   const [orbIdx, setOrbIdx] = useState(0)
   const [labelFading, setLabelFading] = useState(false)
@@ -53,15 +66,16 @@ export function Landing() {
     return () => clearInterval(t)
   }, [])
 
-  // Scroll reveal: add .is-in class once the element enters viewport
+  // Scroll reveal, as progressive enhancement: the hidden-until-scrolled CSS
+  // only applies under .js-reveal (added here, before observing), so content
+  // is fully visible without JS — the old gate rendered every below-fold
+  // section at opacity 0 for crawlers, no-JS browsers, and full-page captures.
   useEffect(() => {
     const el = pageRef.current
     if (!el) return
     const targets = el.querySelectorAll('.reveal, .reveal-stagger')
-    if (!('IntersectionObserver' in window) || targets.length === 0) {
-      targets.forEach(t => t.classList.add('is-in'))
-      return
-    }
+    if (!('IntersectionObserver' in window) || targets.length === 0) return
+    el.classList.add('js-reveal')
     const io = new IntersectionObserver((entries) => {
       entries.forEach(en => {
         if (en.isIntersecting) {
@@ -71,7 +85,11 @@ export function Landing() {
       })
     }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 })
     targets.forEach(t => io.observe(t))
-    return () => io.disconnect()
+    // Reveal everything after a grace period: environments that never scroll
+    // (full-page captures, some crawlers) fired no intersection events and the
+    // below-fold sections stayed invisible forever.
+    const failSafe = setTimeout(() => targets.forEach(t => t.classList.add('is-in')), 2500)
+    return () => { clearTimeout(failSafe); io.disconnect() }
   }, [])
 
   // Per-card cursor variables for 3D hover tilt
@@ -86,7 +104,6 @@ export function Landing() {
   }
 
   const orbStatus = ORB_STATES[orbIdx]
-  const { user, logout } = useAuth()
 
   return (
     <div className="aura-landing-page" ref={pageRef}>
@@ -102,29 +119,11 @@ export function Landing() {
           <nav className="nav-links" aria-label="Primary">
             <a href="#features">Product</a>
             <a href="#stack">Platform</a>
-            {user && <Link to="/my-interviews">My interviews</Link>}
-            {(user?.role === 'recruiter' || user?.role === 'admin') && <Link to="/recruiter">Recruiter</Link>}
-            {user?.role === 'admin' && <Link to="/admin">Dashboard</Link>}
-            {user && user.role !== 'admin' && <Link to="/choose-role?switch=1">Switch role</Link>}
           </nav>
           <div className="nav-cta">
-            {user ? (
-              <>
-                <Link to="/interview" className="btn btn-sm btn-primary">
-                  Get started
-                  <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </Link>
-                <button className="btn btn-sm btn-ghost" onClick={logout} style={{ marginLeft: 8 }}>
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <Link to="/login" className="btn btn-sm btn-primary">
-                Sign in
-              </Link>
-            )}
+            <Link to="/login" className="btn btn-sm btn-primary">
+              Sign in
+            </Link>
           </div>
         </div>
       </header>
@@ -137,21 +136,12 @@ export function Landing() {
             <h1 id="hero-title" className="display">The first interview,<br/><em>automated by intelligence.</em></h1>
             <p className="lede">Scale your hiring with Aura. Real-time voice interviews that probe deeper, evaluate fairer, and report faster — so your team only meets the candidates worth meeting.</p>
             <div className="hero-cta">
-              {user ? (
-                <Link to="/interview" className="btn btn-lg btn-primary">
-                  Start a Mock Interview
-                  <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </Link>
-              ) : (
-                <Link to="/login" className="btn btn-lg btn-primary">
-                  Sign in to get started
-                  <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </Link>
-              )}
+              <Link to="/login" className="btn btn-lg btn-primary">
+                Sign in to get started
+                <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </Link>
               <a
                 href="https://github.com/techafreshh/aura"
                 target="_blank"
@@ -180,13 +170,6 @@ export function Landing() {
               <span className="sep" aria-hidden="true"></span>
               <span>Resume-calibrated</span>
             </div>
-            {user && (
-              <div style={{ marginTop: 14 }}>
-                <Link to="/my-interviews" className="btn btn-sm btn-ghost">
-                  View past interviews →
-                </Link>
-              </div>
-            )}
           </div>
 
           <div className="orb-stage reveal" role="img" aria-label="Aura, an indigo orb pulsing with concentric rings">
@@ -398,21 +381,12 @@ export function Landing() {
           <h2 id="cta-title">Meet your next senior interviewer.</h2>
           <p>Upload a resume and run a real voice interview. Walk away with a real transcript and a real report.</p>
           <div className="cta-actions">
-            {user ? (
-              <Link to="/interview" className="btn btn-lg btn-primary">
-                Start a Mock Interview
-                <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </Link>
-            ) : (
-              <Link to="/login" className="btn btn-lg btn-primary">
-                Sign in to get started
-                <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </Link>
-            )}
+            <Link to="/login" className="btn btn-lg btn-primary">
+              Sign in to get started
+              <svg className="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </Link>
           </div>
         </div>
       </section>

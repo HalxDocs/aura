@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listRecruiterInvites, cancelInvite, type InviteOut } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { recPill, statusPill, formatDate, formatDateTime, isExpired } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
@@ -58,13 +58,9 @@ export function RecruiterDashboard() {
   const quota = data ? `${data.quota_used} / ${data.quota_limit}` : '—'
 
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="recruiter" />
-
-      <main className="container">
+    <PageShell active="recruiter">
+      <div className="aura-dashboard-page">
+      <div className="container">
         <header className="page-head">
           <span className="page-eyebrow"><span className="lit">Recruiter</span>· Interviews</span>
           <h1 className="page-h1">Your <em>interviews</em></h1>
@@ -187,7 +183,8 @@ export function RecruiterDashboard() {
             )}
           </>
         )}
-      </main>
-    </div>
+      </div>
+      </div>
+    </PageShell>
   )
 }

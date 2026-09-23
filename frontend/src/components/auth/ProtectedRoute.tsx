@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import type { ReactNode } from 'react'
 
 interface ProtectedRouteProps {
-  children: ReactNode
+  /** Direct content (element form), or omit to use <Outlet/> (layout form). */
+  children?: ReactNode
   requireAdmin?: boolean
   requireRole?: 'recruiter' | 'candidate'
 }
@@ -37,5 +38,6 @@ export function ProtectedRoute({ children, requireAdmin = false, requireRole }: 
     return <Navigate to={target} replace />
   }
 
-  return <>{children}</>
+  // Layout form (no children): the gate renders its matched child routes.
+  return <>{children ?? <Outlet />}</>
 }

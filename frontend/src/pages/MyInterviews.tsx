@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listMySessions, type SessionSummary } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { recPill, statusPill, formatDate } from '@/lib/dashboard-utils'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
@@ -40,13 +40,9 @@ export function MyInterviews() {
   )
 
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="my-interviews" />
-
-      <main className="container">
+    <PageShell active="my-interviews">
+      <div className="aura-dashboard-page">
+      <div className="container">
         <header className="page-head">
           <span className="page-eyebrow"><span className="lit">Your history</span>· Sessions</span>
           <h1 className="page-h1">My <em>interviews</em></h1>
@@ -141,7 +137,8 @@ export function MyInterviews() {
             </div>
           </>
         )}
-      </main>
-    </div>
+      </div>
+      </div>
+    </PageShell>
   )
 }

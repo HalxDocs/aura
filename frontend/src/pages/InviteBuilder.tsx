@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiErrorMessage, createInvite, type InviteOut } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { formatDateTime } from '@/lib/dashboard-utils'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
@@ -85,13 +85,9 @@ export function InviteBuilder() {
 
   if (created) {
     return (
-      <div className="aura-pre-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-
-        <AppHeader active="recruiter" />
-
-        <main className="container" style={{ maxWidth: 760 }}>
+      <PageShell active="recruiter">
+        <div className="aura-pre-page">
+        <div className="container" style={{ maxWidth: 760 }}>
           <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Interview created</span>
           <h1 className="h1">Send the <em>private link.</em></h1>
           <p className="lede">
@@ -129,20 +125,17 @@ export function InviteBuilder() {
               </div>
             </div>
           </article>
-        </main>
+        </div>
+        </div>
         <Toaster />
-      </div>
+      </PageShell>
     )
   }
 
   return (
-    <div className="aura-pre-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="recruiter" />
-
-      <main className="container">
+    <PageShell active="recruiter">
+      <div className="aura-pre-page">
+      <div className="container">
         <span className="eyebrow"><span className="dot" aria-hidden="true"></span>New interview</span>
         <h1 className="h1">Set the <em>questions.</em></h1>
         <p className="lede">
@@ -242,8 +235,9 @@ export function InviteBuilder() {
             )}
           </div>
         </article>
-      </main>
+      </div>
+      </div>
       <Toaster />
-    </div>
+    </PageShell>
   )
 }

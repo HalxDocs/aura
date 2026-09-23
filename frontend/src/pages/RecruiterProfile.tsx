@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRecruiterProfile, saveRecruiterProfile } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { apiErrorMessage } from '@/api/client'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
@@ -79,13 +79,9 @@ export function RecruiterProfile() {
   }
 
   return (
-    <div className="aura-pre-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="profile" />
-
-      <main className="container" style={{ maxWidth: 640 }}>
+    <PageShell active="profile">
+      <div className="aura-pre-page">
+      <div className="container" style={{ maxWidth: 640 }}>
         <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Recruiter profile</span>
         <h1 className="h1">Company <em>profile.</em></h1>
         <p className="lede">
@@ -167,8 +163,9 @@ export function RecruiterProfile() {
             </div>
           </form>
         )}
-      </main>
+      </div>
+      </div>
       <Toaster />
-    </div>
+    </PageShell>
   )
 }

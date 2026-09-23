@@ -4,6 +4,7 @@ import { initials } from '@/lib/dashboard-utils'
 import '@/styles/aura-header.css'
 
 export type HeaderLink =
+  | 'dashboard'
   | 'new-interview'
   | 'my-interviews'
   | 'recruiter'
@@ -34,7 +35,7 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
   const switchTo = (next: Mode) => {
     if (next === mode) return
     setMode(next)
-    navigate(next === 'recruiter' ? '/recruiter' : '/interview')
+    navigate(next === 'recruiter' ? '/recruiter' : '/dashboard')
   }
 
   return (
@@ -45,6 +46,7 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
         </Link>
         {!hideLinks && (
           <div className="nav-links">
+            <Link to="/dashboard" className={active === 'dashboard' ? 'active' : undefined}>Dashboard</Link>
             <Link to="/interview" className={active === 'new-interview' ? 'active' : undefined}>New interview</Link>
             <Link to="/my-interviews" className={active === 'my-interviews' ? 'active' : undefined}>My interviews</Link>
             {canRecruit ? (
@@ -91,13 +93,17 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
             </div>
           )}
           {user?.role === '' && <Link to="/choose-role">Choose role</Link>}
-          {user && (
-            <span className="user-chip">
-              <span className="avatar" aria-hidden="true">{initials(user.name || user.email)}</span>
-              <span className="name">{user.name || user.email}</span>
-            </span>
+          {user ? (
+            <>
+              <span className="user-chip">
+                <span className="avatar" aria-hidden="true">{initials(user.name || user.email)}</span>
+                <span className="name">{user.name || user.email}</span>
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+            </>
+          ) : (
+            <Link to="/login" className="btn btn-primary btn-sm">Sign in</Link>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
         </div>
       </div>
     </nav>

@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/react'
 import App from './App.tsx'
 import { ErrorFallback } from './components/ErrorFallback.tsx'
 import './index.css'
+import './styles/aura-base.css'
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,

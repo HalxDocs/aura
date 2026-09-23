@@ -1,55 +1,38 @@
-import type { FinalReport } from "@/api/client";
+import { useState, type CSSProperties } from "react";
 import { downloadArtifact } from "@/api/client";
-import type { CSSProperties } from "react";
-import { useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { recPill } from "@/lib/dashboard-utils";
 import "@/styles/aura-report.css";
 
 interface ReportViewProps {
-  report: FinalReport;
+  report: { candidate_name: string; overall_score: number; recommendation: string; summary: string; strengths: string[]; weaknesses: string[]; section_grades: { section_name: string; score: number; comments: string }[] };
   sessionId: string;
+  /** Called by the single exit button; the host page decides the destination. */
   onDone: () => void;
-  /** Optional extra actions (e.g. recruiter audio/PDF downloads) shown in the action bar. */
+  /** Exit-button label — must describe where onDone actually goes. */
+  doneLabel?: string;
+  /** Real completion timestamp from the session; shown in the page head. */
+  completedAt?: string | null;
   recruiterActions?: React.ReactNode;
-  /**
-   * "h2" when the embedding page already renders its own <h1> (session
-   * detail, invite detail, candidate report) — keeps exactly one <h1> per
-   * page for axe's page-has-heading-one / heading-order rules.
-   */
   headingLevel?: "h1" | "h2";
 }
 
-const recPill = (rec: string) => {
-  switch (rec) {
-    case "Strong Hire": return { cls: "pill pill-success", text: "Strong Hire" };
-    case "Hire":        return { cls: "pill pill-success", text: "Hire" };
-    case "Hold":        return { cls: "pill pill-warn",    text: "Hold" };
-    case "No Hire":     return { cls: "pill pill-danger",  text: "No Hire" };
-    default:            return { cls: "pill",              text: rec };
-  }
-};
-
-export function ReportView({ report, sessionId, onDone, recruiterActions, headingLevel = "h1" }: ReportViewProps) {
+/**
+ * The interview report document. Page chrome (header, ambient backdrop,
+ * footer) belongs to the host page's PageShell — this component used to ship
+ * its own sticky nav and brand footer, which stacked a second header onto
+ * every page that embedded it.
+ */
+export function ReportView({ report, sessionId, onDone, doneLabel = "Back", completedAt, recruiterActions, headingLevel = "h1" }: ReportViewProps) {
   const HeadingTag = headingLevel;
   const [downloading, setDownloading] = useState<'pdf' | 'transcript' | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const initials = report.candidate_name.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase() || "C";
-  const rec = recPill(report.recommendation);
+  const rec = recPill(report.recommendation as never);
   const overallPct = Math.max(0, Math.min(100, report.overall_score));
-  const generatedDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const reportDate = completedAt
+    ? new Date(completedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+    : null;
 
   // Downloads go through the backend artifacts (GET /download/{id}/{type}):
   // the PDF is the server-rendered report document, shared with what gets
@@ -69,74 +52,36 @@ export function ReportView({ report, sessionId, onDone, recruiterActions, headin
 
   return (
     <div className="aura-report-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
       {downloadError && (
         <div className="download-error" role="alert" style={{ position: "relative", zIndex: 10, margin: "12px auto 0", maxWidth: 1200 }}>{downloadError}</div>
       )}
 
-      {/* Nav */}
-      <nav className="nav" aria-label="Primary">
-        <div className="nav-row">
-          <Link to="/" className="brand" aria-label="Aura home">
-            <span className="mark" aria-hidden="true"></span><span>Aura</span>
-          </Link>
-          <nav className="breadcrumb" aria-label="Breadcrumb">
-            <span>Reports</span>
-            <span className="sep">/</span>
-            <span className="current">{report.candidate_name}</span>
-          </nav>
-          <div className="nav-actions">
-            <div className="dropdown" ref={dropdownRef} style={{ position: "relative" }}>
-              <button className="btn-icon" aria-label="Download" onClick={() => setDropdownOpen(!dropdownOpen)} title="Download">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </button>
-              {dropdownOpen && (
-                <div className="dropdown-menu" style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: "#1c1c22", border: "1px solid #27272a", borderRadius: 8, padding: "4px 0", zIndex: 50, minWidth: 160 }}>
-                  <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('pdf'); }}>PDF Report</button>
-                  <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('transcript'); }}>Transcript (.json)</button>
-                </div>
-              )}
-            </div>
-            <button className="btn btn-ghost" onClick={onDone}>New interview</button>
-          </div>
-        </div>
-      </nav>
-
       <div>
         <section className="container" aria-label="Interview report">
-          {/* Page head */}
+          {/* Page head: the one download control lives here. The old layout
+              scattered five (three dropdowns sharing one open state — they all
+              opened at once — plus host-page buttons). */}
           <header className="page-head">
             <div>
               <span className="page-eyebrow">
                 <span className="lit">Interview Report</span>
                 <span>·</span>
-                <span>{generatedDate}</span>
+                <span>{reportDate ?? "In progress"}</span>
               </span>
               <HeadingTag className="page-h1">Interview <em>Result</em></HeadingTag>
             </div>
             <div className="page-head-actions">
-              <div className="dropdown" style={{ position: "relative" }}>
-                <button className="btn btn-ghost" type="button" onClick={() => setDropdownOpen(!dropdownOpen)} disabled={downloading !== null}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  {downloading ? "Preparing…" : "Download"}
-                </button>
-                {dropdownOpen && (
-                  <div className="dropdown-menu" style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: "#1c1c22", border: "1px solid #27272a", borderRadius: 8, padding: "4px 0", zIndex: 50, minWidth: 160 }}>
-                    <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('pdf'); }}>PDF Report</button>
-                    <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('transcript'); }}>Transcript (.json)</button>
-                  </div>
-                )}
-              </div>
+              <button className="btn btn-ghost" type="button" onClick={() => handleDownload('pdf')} disabled={downloading !== null}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                {downloading === 'pdf' ? "Preparing…" : "Download PDF"}
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => handleDownload('transcript')} disabled={downloading !== null}>
+                {downloading === 'transcript' ? "Preparing…" : "Transcript"}
+              </button>
             </div>
           </header>
 
@@ -154,15 +99,15 @@ export function ReportView({ report, sessionId, onDone, recruiterActions, headin
               <div className="meta-row" role="group" aria-label="Interview metadata">
                 <div className="meta-cell">
                   <div className="meta-label">Date</div>
-                  <div className="meta-value">{generatedDate}</div>
+                  <div className="meta-value">{reportDate ?? "—"}</div>
                 </div>
                 <div className="meta-cell">
                   <div className="meta-label">Modality</div>
-                  <div className="meta-value">Voice · WSS</div>
+                  <div className="meta-value">Voice</div>
                 </div>
                 <div className="meta-cell">
                   <div className="meta-label">Agent</div>
-                  <div className="meta-value">Aura · en-US</div>
+                  <div className="meta-value">Aura</div>
                 </div>
               </div>
 
@@ -258,12 +203,14 @@ export function ReportView({ report, sessionId, onDone, recruiterActions, headin
             </article>
           </section>
 
-          {/* Action bar */}
-          <section className="action-bar" aria-label="Decision actions">
+          {/* Action bar: exit (label = destination) + recruiter artifacts. The
+              old "Back to Aura" / "New interview" labels described pages the
+              button did not go to. */}
+          <section className="action-bar" aria-label="Report actions">
             <div className="action-meta">
               <span>Generated by Aura</span>
               <span className="sep"></span>
-              <span>{generatedDate}</span>
+              <span>{reportDate ?? "—"}</span>
               {recruiterActions && (
                 <span className="recruiter-actions" style={{ marginLeft: 12, display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                   {recruiterActions}
@@ -272,33 +219,14 @@ export function ReportView({ report, sessionId, onDone, recruiterActions, headin
             </div>
             <div className="action-set">
               <button className="btn btn-ghost" type="button" onClick={onDone}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="19" y1="12" x2="5" y2="12"/>
                   <polyline points="12 19 5 12 12 5"/>
                 </svg>
-                Back to Aura
+                {doneLabel}
               </button>
-              <div className="dropdown" style={{ position: "relative" }}>
-                <button className="btn btn-primary" type="button" onClick={() => setDropdownOpen(!dropdownOpen)} disabled={downloading !== null}>
-                  {downloading ? "Preparing…" : "Download"}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"/>
-                  </svg>
-                </button>
-                {dropdownOpen && (
-                  <div className="dropdown-menu" style={{ position: "absolute", right: 0, bottom: "100%", marginBottom: 4, background: "#1c1c22", border: "1px solid #27272a", borderRadius: 8, padding: "4px 0", zIndex: 50, minWidth: 160 }}>
-                    <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('pdf'); }}>PDF Report</button>
-                    <button className="dropdown-item" style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", color: "#fafafa", textAlign: "left", cursor: "pointer", fontSize: 14 }} onClick={() => { setDropdownOpen(false); void handleDownload('transcript'); }}>Transcript (.json)</button>
-                  </div>
-                )}
-              </div>
             </div>
           </section>
-
-          <footer className="page-foot">
-            <span>© 2026 Aura · Built on LiveKit &amp; Pydantic AI</span>
-            <span><Link to="/">Landing</Link></span>
-          </footer>
         </section>
       </div>
     </div>

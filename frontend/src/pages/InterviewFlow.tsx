@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useInterview } from '@/hooks/use-interview'
 import { uploadResume, getToken, getPlan, startInterviewFromProfile, getCandidateProfile } from '@/api/client'
@@ -7,7 +7,7 @@ import { InterviewAgent } from '@/components/voice/InterviewAgent'
 import { ReportView } from '@/components/interview/ReportView'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { PageShell } from '@/components/layout/PageShell'
 import '@/styles/aura-pre.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
@@ -22,7 +22,6 @@ export function InterviewFlow() {
   const [token, setToken] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const { toast } = useToast()
-  const { user, logout } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Deep link: /interview?session=<id> skips the upload step and shows the
@@ -110,37 +109,20 @@ export function InterviewFlow() {
   }
 
   if (step === 'REPORT' && report) {
-    return <ReportView report={report} sessionId={sessionId!} onDone={reset} />
+    return (
+      <PageShell hideLinks footer={false}>
+        <div className="container">
+          <ReportView report={report} sessionId={sessionId!} onDone={reset} doneLabel="Start another interview" completedAt={null} />
+        </div>
+      </PageShell>
+    )
   }
 
   return (
-    <div className="aura-pre-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      {/* Nav */}
-      <nav className="nav" aria-label="Primary">
-        <div className="nav-row">
-          <Link to="/" className="brand" aria-label="Aura home">
-            <span className="mark" aria-hidden="true"></span><span>Aura</span>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {user && <span style={{ fontSize: 13, opacity: 0.7 }}>{user.name}</span>}
-            {step !== 'UPLOAD' && (
-              <button className="btn btn-ghost" onClick={reset} style={{ height: 32, padding: '0 14px', flex: 'none', fontSize: 13 }}>
-                Cancel
-              </button>
-            )}
-            <button className="btn btn-ghost" onClick={logout} style={{ height: 32, padding: '0 14px', flex: 'none', fontSize: 13 }}>
-              Sign out
-            </button>
-          </div>
-        </div>
-      </nav>
-
+    <PageShell hideLinks>
       {/* UPLOAD */}
       {step === 'UPLOAD' && (
-        <main className="container">
+        <div className="container">
           <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Step 1 — Intake</span>
           <h1 className="h1">Upload a <em>resume.</em></h1>
           <p className="lede">Aura builds a personalized interview plan from the candidate's PDF in a few seconds.</p>
@@ -191,12 +173,12 @@ export function InterviewFlow() {
               </div>
             </div>
           </article>
-        </main>
+        </div>
       )}
 
       {/* PREVIEW */}
       {step === 'PREVIEW' && plan && (
-        <main className="container wide">
+        <div className="container wide">
           <span className="eyebrow"><span className="dot" aria-hidden="true"></span>Step 2 — Plan</span>
           <h1 className="h1">Ready when <em>you are.</em></h1>
           <p className="lede">Here's what Aura will explore in the conversation. You can start the interview when you're ready.</p>
@@ -235,10 +217,10 @@ export function InterviewFlow() {
               </div>
             </div>
           </article>
-        </main>
+        </div>
       )}
 
       <Toaster />
-    </div>
+    </PageShell>
   )
 }

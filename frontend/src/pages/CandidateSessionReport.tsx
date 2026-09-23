@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { downloadArtifact, getMySessionDetail, type SessionDetail, type TranscriptEntryRead } from '@/api/client'
+import { getMySessionDetail, type SessionDetail, type TranscriptEntryRead } from '@/api/client'
 import { ReportView } from '@/components/interview/ReportView'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import '@/styles/aura-dashboard.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
@@ -22,7 +22,6 @@ export function CandidateSessionReport() {
   const [data, setData] = useState<SessionDetail | null>(null)
   const [tab, setTab] = useState<'report' | 'transcript'>('report')
   const [error, setError] = useState<string | null>(null)
-  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   function onTablistKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const idx = TABS.findIndex(t => t.key === tab)
@@ -67,11 +66,8 @@ export function CandidateSessionReport() {
 
   if (error) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader hideLinks />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="page-head">
             <span className="page-eyebrow"><span className="lit">Report</span></span>
             <h1 className="page-h1">Report not available</h1>
@@ -80,35 +76,27 @@ export function CandidateSessionReport() {
           <Link to="/my-interviews" className="btn btn-ghost" style={{ marginTop: 12 }}>
             ← Back to my interviews
           </Link>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   if (!data) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <AppHeader hideLinks />
-        <main className="container">
+      <PageShell hideLinks>
+        <div className="container">
           <div className="loading-state" role="status" aria-live="polite">
             <div className="spinner" aria-hidden="true"></div>
             <span>Loading report…</span>
           </div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="my-interviews" />
-
-      <main className="container">
+    <PageShell active="my-interviews">
+      <div className="container">
         {/* The page's <h1>: ReportView below is embedded with headingLevel="h2"
             and the tabpanels carry their own <h2>s, so every tab state keeps
             exactly one heading level per page (axe page-has-heading-one). */}
@@ -135,14 +123,17 @@ export function CandidateSessionReport() {
               >{t.label}</button>
             ))}
           </div>
-          <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} disabled={!data.report} onClick={() => handleDownload('pdf')}>Download PDF</button>
-          <button className="btn btn-ghost" disabled={!data.transcript?.length} onClick={() => handleDownload('transcript')}>Download transcript</button>
         </div>
-        {downloadError && <div className="error-banner" role="alert" style={{ marginBottom: 16 }}>{downloadError}</div>}
-
         {tab === 'report' && data.report ? (
           <div role="tabpanel" id="report-panel" aria-labelledby="tab-report">
-            <ReportView report={data.report} sessionId={sessionId!} onDone={() => navigate('/my-interviews')} headingLevel="h2" />
+            <ReportView
+              report={data.report}
+              sessionId={sessionId!}
+              onDone={() => navigate('/my-interviews')}
+              doneLabel="Back to my interviews"
+              completedAt={data.completed_at}
+              headingLevel="h2"
+            />
           </div>
         ) : tab === 'report' ? (
           <div role="tabpanel" id="report-panel" aria-labelledby="tab-report" className="card">
@@ -173,19 +164,9 @@ export function CandidateSessionReport() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </PageShell>
   )
-
-  async function handleDownload(fileType: 'pdf' | 'transcript') {
-    if (!sessionId) return
-    setDownloadError(null)
-    try {
-      await downloadArtifact(sessionId, fileType, data?.candidate_name ?? undefined)
-    } catch {
-      setDownloadError(`Could not download the ${fileType === 'pdf' ? 'PDF report' : 'transcript'}. Please try again.`)
-    }
-  }
 }
 
 function formatTimestamp(seconds: number): string {

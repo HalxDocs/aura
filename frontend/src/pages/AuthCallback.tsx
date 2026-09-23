@@ -33,7 +33,7 @@ export function AuthCallback() {
         } else if (user.role === '') {
           navigate('/choose-role', { replace: true })
         } else {
-          navigate('/interview', { replace: true })
+          navigate('/dashboard', { replace: true })
         }
       } catch {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)

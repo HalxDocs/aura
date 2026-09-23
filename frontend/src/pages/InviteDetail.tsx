@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getRecruiterInvite, downloadFile, fetchBlob, type InviteDetail as InviteDetailData } from '@/api/client'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
 import { statusPill, formatDateTime, initials, isExpired } from '@/lib/dashboard-utils'
 import { ReportView } from '@/components/interview/ReportView'
 import '@/styles/aura-dashboard.css'
@@ -69,69 +69,63 @@ export function InviteDetail() {
 
   if (error) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <main className="container" style={{ paddingTop: 60 }}>
+      <PageShell active="recruiter">
+        <div className="container" style={{ paddingTop: 60 }}>
           <div className="card">
             <div className="empty">
               <h3>{error}</h3>
               <Link to="/recruiter" className="btn btn-primary" style={{ marginTop: 12 }}>Back to dashboard</Link>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   if (!invite) {
     return (
-      <div className="aura-dashboard-page">
-        <div className="page-ambient" aria-hidden="true"></div>
-        <div className="grid-mesh" aria-hidden="true"></div>
-        <main className="container" style={{ paddingTop: 60 }}>
+      <PageShell active="recruiter">
+        <div className="container" style={{ paddingTop: 60 }}>
           <div className="loading-state" role="status" aria-live="polite">
             <div className="spinner" aria-hidden="true"></div>
             <span>Loading interview…</span>
           </div>
-        </main>
-      </div>
+        </div>
+      </PageShell>
     )
   }
 
   // Completed interviews get the full report view
   if (invite.status === 'completed' && invite.report) {
     return (
-      <ReportView
-        report={invite.report}
-        sessionId={invite.session_id || ''}
-        onDone={() => window.history.back()}
-        headingLevel="h2"
-        recruiterActions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {audioUrl && <audio controls src={audioUrl} style={{ height: 36 }} aria-label="Interview recording" />}
-            <button className="btn btn-ghost btn-sm" onClick={() => download('audio')} disabled={downloading !== null}>
-              {downloading === 'audio' ? 'Preparing…' : 'Download audio'}
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => download('pdf')} disabled={downloading !== null}>
-              {downloading === 'pdf' ? 'Preparing…' : 'Download PDF'}
-            </button>
-          </div>
-        }
-      />
+      <PageShell active="recruiter">
+        <div className="container">
+          <ReportView
+            report={invite.report}
+            sessionId={invite.session_id || ''}
+            onDone={() => window.history.back()}
+            doneLabel="Back"
+            completedAt={invite.completed_at}
+            headingLevel="h2"
+            recruiterActions={
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {audioUrl && <audio controls src={audioUrl} style={{ height: 36 }} aria-label="Interview recording" />}
+                <button className="btn btn-ghost btn-sm" onClick={() => download('audio')} disabled={downloading !== null}>
+                  {downloading === 'audio' ? 'Preparing…' : 'Download audio'}
+                </button>
+              </div>
+            }
+          />
+        </div>
+      </PageShell>
     )
   }
 
   const status = statusPill(invite.status === 'cancelled' ? 'pending' : invite.status)
 
   return (
-    <div className="aura-dashboard-page">
-      <div className="page-ambient" aria-hidden="true"></div>
-      <div className="grid-mesh" aria-hidden="true"></div>
-
-      <AppHeader active="recruiter" />
-
-      <main className="container" style={{ maxWidth: 860 }}>
+    <PageShell active="recruiter">
+      <div className="container" style={{ maxWidth: 860 }}>
         <header className="page-head">
           <span className="page-eyebrow"><span className="lit">Interview</span>· Details</span>
           <h1 className="page-h1">{invite.title}</h1>
@@ -201,7 +195,7 @@ export function InviteDetail() {
         <div className="btn-row" style={{ marginTop: 18 }}>
           <Link to="/recruiter" className="btn btn-ghost">Back to dashboard</Link>
         </div>
-      </main>
-    </div>
+      </div>
+    </PageShell>
   )
 }

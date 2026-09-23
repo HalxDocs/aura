@@ -37,8 +37,6 @@ describe('CandidateDashboard', () => {
       user: { id: 'u1', email: 'c@example.com', name: 'Ada Lovelace', role: 'candidate' },
       token: 't',
       loading: false,
-      mode: 'candidate',
-      setMode: vi.fn(),
       login: vi.fn(),
       logout: vi.fn(),
       setAuth: vi.fn(),

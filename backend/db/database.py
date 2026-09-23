@@ -90,7 +90,6 @@ _USER_COLUMNS_ADDED = [
     ("verification_token_expires_at", "DATETIME"),
     ("reset_token_hash", "VARCHAR(64)"),
     ("reset_token_expires_at", "DATETIME"),
-    ("is_recruiter", "BOOLEAN DEFAULT 0 NOT NULL"),
 ]
 
 
@@ -127,12 +126,6 @@ async def init_db() -> dict[str, list[str]]:
         # Alembic, so the legacy-column heal has nothing to do there.
         if IS_SQLITE:
             await _add_missing_user_columns(conn)
-            # Legacy rows that chose the recruiter role pre-flag keep their
-            # capability. (Server-backed databases get the same backfill from
-            # the Alembic revision.)
-            await conn.execute(text(
-                "UPDATE users SET is_recruiter = 1 WHERE role = 'recruiter' AND NOT is_recruiter"
-            ))
             # Backfill identities for databases created before multi-provider
             # login. INSERT OR IGNORE / randomblob() are SQLite syntax.
             await conn.execute(text("""

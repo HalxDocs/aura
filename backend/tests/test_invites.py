@@ -165,6 +165,20 @@ async def test_role_picker_rejects_worker():
     assert resp.status_code == 403
 
 
+# ---------------------------------------------- exclusive roles vs candidate paths
+
+
+@pytest.mark.asyncio
+async def test_recruiter_cannot_start_practice_interview():
+    """The candidate paths are gated, mirroring the recruiter gates."""
+    await _make_recruiter()
+    async with _client() as ac:
+        files = {"file": ("resume.pdf", b"%PDF-1.4 fake", "application/pdf")}
+        resp = await ac.post("/upload", files=files)
+    assert resp.status_code == 403
+    assert "Candidate access required" in resp.json()["detail"]
+
+
 # ------------------------------------------------------------ invite creation
 
 
@@ -258,6 +272,43 @@ async def test_invite_preview_and_start_synthesizes_plan_without_parser():
     assert data["plan"]["candidate_name"] == "Carl Candidate"
     assert data["plan"]["question_bank"] == ["Q1?", "Q2?"]
     assert data["plan"]["job_description"] == "Building a payments platform."
+
+
+@pytest.mark.asyncio
+async def test_recruiter_cannot_redeem_own_invite():
+    """Roles are exclusive: the recruiter side of an account cannot be its candidate."""
+    recruiter = await _make_recruiter()
+    async with async_session() as db:
+        invite = await create_invite(
+            db, recruiter_id=recruiter.id, title="Go Engineer", context=None,
+            questions=["Q1?", "Q2?"], token="tok-self-redeem",
+        )
+        token = invite.token
+
+    async with _client() as ac:
+        preview = await ac.get(f"/invite/{token}")  # preview stays open to anyone
+        assert preview.status_code == 200
+        resp = await ac.post(f"/invite/{token}/start")
+    assert resp.status_code == 403
+    assert "Candidate access required" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_recruiter_cannot_redeem_any_invite():
+    recruiter = await _make_recruiter()
+    other = await _make_recruiter(name="Rival Ray")
+    async with async_session() as db:
+        invite = await create_invite(
+            db, recruiter_id=other.id, title="Go Engineer", context=None,
+            questions=["Q1?", "Q2?"], token="tok-rec-redeem",
+        )
+        token = invite.token
+
+    override_user(recruiter)
+    async with _client() as ac:
+        resp = await ac.post(f"/invite/{token}/start")
+    assert resp.status_code == 403
+    assert "Candidate access required" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio

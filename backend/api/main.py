@@ -35,7 +35,7 @@ from models.schemas import (
     InviteStartResponse,
     RecruiterInvitesResponse,
 )
-from api.deps import get_current_user, require_admin, require_recruiter
+from api.deps import get_current_user, require_admin, require_recruiter, require_candidate
 from api.error_handlers import register_error_handlers
 from api.rate_limit import limiter
 from api.auth import router as auth_router
@@ -242,7 +242,12 @@ from utils.text import sanitize_name, sanitize_text  # noqa: E402, F401
 
 
 async def can_access_session(session, user) -> bool:
-    """Owner, admin, or the recruiter whose invite created the session."""
+    """Owner, admin, or the recruiter whose invite created the session.
+
+    The owner path is candidate-side, the invite path recruiter-side; since
+    roles are exclusive one account can never qualify as both at once, so a
+    recruiter can only reach a session through invites they created.
+    """
     if user.role == "admin":
         return True
     if session.user_id == user.id:
@@ -260,6 +265,7 @@ async def upload_resume(
     job_description: str = Form(""),
     user=Depends(get_current_user),
 ):
+    require_candidate(user)
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -826,6 +832,7 @@ async def start_invited_interview(request: Request, token: str, user=Depends(get
     invited interview costs voice minutes only. The monthly quota is enforced here
     because that is the moment credits start burning.
     """
+    require_candidate(user)
     async with async_session() as db:
         invite = await get_invite_by_token(db, token)
         if not invite:

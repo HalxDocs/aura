@@ -86,7 +86,8 @@ def test_recruiter_flag_backfilled_from_role(tmp_path, monkeypatch):
     monkeypatch.setattr(db_database, "DB_PATH", db_path)
     cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
 
-    # Build the schema as it was before the flag, then add pre-flag users.
+    # Build the schema as it was before the flag (pre-6f34e3e1eca3), then
+    # add pre-flag users whose role strings the flag backfill acted on.
     command.upgrade(cfg, "b8e2802f0d1b")
     conn = sqlite3.connect(db_path)
     try:
@@ -99,11 +100,62 @@ def test_recruiter_flag_backfilled_from_role(tmp_path, monkeypatch):
     finally:
         conn.close()
 
+    # Upgrading to head passes through b2c3d4e5f6a7, which folds the flag
+    # the 6f34e3e1eca3 backfill set into role. u1 (role='recruiter') keeps
+    # recruiter; u2 (role='candidate', no grant) stays candidate.
     command.upgrade(cfg, "head")
 
     conn = sqlite3.connect(db_path)
     try:
-        flags = dict(conn.execute("SELECT id, is_recruiter FROM users"))
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        roles = dict(conn.execute("SELECT id, role FROM users"))
     finally:
         conn.close()
-    assert flags == {"u1": 1, "u2": 0}
+    assert "is_recruiter" not in cols
+    assert roles == {"u1": "recruiter", "u2": "candidate"}
+
+def test_exclusive_roles_migration_resolves_flag_and_drops_column(tmp_path, monkeypatch):
+    """b2c3d4e5f6a7: the recruiter grant wins over the last-picked mode string."""
+    import sqlite3
+
+    from alembic import command
+    from alembic.config import Config
+
+    db_path = str(tmp_path / "exclusive-roles-test.db")
+    monkeypatch.setattr(db_database, "DB_PATH", db_path)
+    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
+
+    # Build the dual-role schema (flag column present) and insert every
+    # combination that could exist in a live database.
+    command.upgrade(cfg, "e7f8a9b0c1d2")
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO users (id, email, name, provider, provider_id, role, is_recruiter, created_at, last_login_at) "
+            "VALUES "
+            "('u1', 'dual@x.com', 'D', 'google', 'p1', 'candidate', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),"
+            "('u2', 'rec@x.com', 'R', 'google', 'p2', 'recruiter', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),"
+            "('u3', 'admin@x.com', 'A', 'google', 'p3', 'admin', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),"
+            "('u4', 'plain@x.com', 'P', 'google', 'p4', 'candidate', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    command.upgrade(cfg, "head")
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        roles = dict(conn.execute("SELECT id, role FROM users"))
+    finally:
+        conn.close()
+    # Grant wins for the dual-role candidate; admins are untouched.
+    assert roles == {
+        "u1": "recruiter",
+        "u2": "recruiter",
+        "u3": "admin",
+        "u4": "candidate",
+    }
+    # The flag column is gone — role is the single source of truth.
+    assert "is_recruiter" not in cols

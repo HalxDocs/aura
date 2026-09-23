@@ -25,6 +25,7 @@ from db.crud import (
     store_reset_token,
     set_user_password,
     set_user_role,
+    ROLE_LOCKED,
 )
 from db.database import async_session
 from db.models import User
@@ -172,7 +173,6 @@ def _user_payload(user: User) -> dict:
         "email": user.email,
         "name": user.name,
         "role": user.role,
-        "is_recruiter": bool(getattr(user, "is_recruiter", False)),
         "avatar_url": user.avatar_url,
     }
 
@@ -374,13 +374,21 @@ class RoleChoice(BaseModel):
 @router.post("/role")
 @limiter.limit("20/hour")
 async def set_role(request: Request, choice: RoleChoice, user=Depends(get_current_user)):
-    """Role picker: choose the starting mode (candidate or recruiter).
+    """Role picker: choose the exclusive role (candidate or recruiter).
 
-    Choosing ``recruiter`` permanently grants the ``is_recruiter`` capability
-    (dual roles — picking ``candidate`` later never revokes it; active mode is
-    a frontend-only concern). Admins keep their role and cannot demote
+    Roles are mutually exclusive — the picked value replaces the old one, and
+    switching away from a role that has been used (invites created as a
+    recruiter, interviews taken as a candidate) is refused with 409 so
+    history always belongs to the role that made it. A used candidate side
+    also blocks an unpicked role from picking recruiter. Picking the current
+    role is an idempotent no-op. Admins keep their role and cannot demote
     themselves via this endpoint. Returns a fresh JWT plus the updated user
     since the token carries a (read-only) role claim the frontend relies on.
+
+    ``set_user_role`` follows the redeem-status convention and returns one of
+    three things, mirrored in the responses below: the updated ``User`` →
+    200 with a fresh token, the ``ROLE_LOCKED`` sentinel → 409, ``None`` →
+    404.
     """
     if isinstance(user, _WorkerUser):
         raise HTTPException(403, "Workers cannot set a role")
@@ -389,8 +397,23 @@ async def set_role(request: Request, choice: RoleChoice, user=Depends(get_curren
 
     async with async_session() as db:
         updated = await set_user_role(db, user.id, choice.role)
-    if not updated:
+    if updated is None:
         raise HTTPException(404, "User not found")
+    if updated == ROLE_LOCKED:
+        if user.role == "recruiter":
+            raise HTTPException(
+                409,
+                "You've already created interviews as a recruiter, so your role is locked.",
+            )
+        if user.role == "candidate":
+            raise HTTPException(
+                409,
+                "You've already taken interviews as a candidate, so your role is locked.",
+            )
+        raise HTTPException(
+            409,
+            "You've already taken interviews, so you can't pick the recruiter role.",
+        )
 
     return {
         "token": _make_jwt(updated.id, updated.email, updated.role, updated.name),

@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AppHeader } from '../AppHeader'
-import { useAuth, type Mode } from '@/contexts/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -11,16 +11,11 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 const useAuthMock = vi.mocked(useAuth)
 
-function authState(overrides: {
-  user: Record<string, unknown>
-  mode?: Mode
-}) {
+function authState(user: Record<string, unknown>) {
   return {
-    user: overrides.user as never,
+    user: user as never,
     token: 'test-token',
     loading: false,
-    mode: overrides.mode ?? 'candidate',
-    setMode: vi.fn(),
     login: vi.fn(),
     logout: vi.fn(),
     setAuth: vi.fn(),
@@ -41,34 +36,47 @@ describe('AppHeader', () => {
     localStorage.clear()
   })
 
-  it('offers "Become a recruiter" to a flag-less candidate instead of the mode switcher', () => {
-    useAuthMock.mockReturnValue(authState({ user: { id: 'u1', email: 'c@example.com', name: 'Cay', role: 'candidate' } }))
+  it('a candidate sees candidate links and the switch-role doorway, no Recruiter link', () => {
+    useAuthMock.mockReturnValue(authState({ id: 'u1', email: 'c@example.com', name: 'Cay', role: 'candidate' }))
 
     renderHeader()
 
-    const grant = screen.getByRole('link', { name: /become a recruiter/i })
-    expect(grant).toHaveAttribute('href', '/choose-role?switch=1')
-    // Exact-name match: "Become a recruiter" must not count as the Recruiter link.
+    expect(screen.getByRole('link', { name: 'New interview' })).toHaveAttribute('href', '/interview')
+    expect(screen.getByRole('link', { name: 'My interviews' })).toHaveAttribute('href', '/my-interviews')
+    expect(screen.getByRole('link', { name: /switch role/i })).toHaveAttribute('href', '/choose-role?switch=1')
+    // Exact-name match: "Switch role" must not count as the Recruiter link.
     expect(screen.queryByRole('link', { name: 'Recruiter' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: /active role/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile/candidate')
   })
 
-  it('shows the mode switcher and no grant link for an is_recruiter flag holder', () => {
-    useAuthMock.mockReturnValue(authState({ user: { id: 'u2', email: 'd@example.com', name: 'Dee', role: 'candidate', is_recruiter: true } }))
+  it('a recruiter sees the Recruiter link and profile, no switch-role doorway for their own side', () => {
+    useAuthMock.mockReturnValue(authState({ id: 'u2', email: 'r@example.com', name: 'Rex', role: 'recruiter' }))
 
     renderHeader()
 
     expect(screen.getByRole('link', { name: 'Recruiter' })).toHaveAttribute('href', '/recruiter')
-    expect(screen.getByRole('group', { name: /active role/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /become a recruiter/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile/recruiter')
+    expect(screen.queryByRole('link', { name: 'New interview' })).not.toBeInTheDocument()
+    // Non-admins always keep the doorway to the role picker; the server's
+    // usage lock decides whether a switch actually happens.
+    expect(screen.getByRole('link', { name: /switch role/i })).toBeInTheDocument()
   })
 
-  it('admins get the switcher, not the grant link', () => {
-    useAuthMock.mockReturnValue(authState({ user: { id: 'u3', email: 'a@example.com', name: 'Ava', role: 'admin' } }))
+  it('an admin gets Recruiter and Admin links', () => {
+    useAuthMock.mockReturnValue(authState({ id: 'u3', email: 'a@example.com', name: 'Ava', role: 'admin' }))
 
     renderHeader()
 
-    expect(screen.getByRole('group', { name: /active role/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /become a recruiter/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Recruiter' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /switch role/i })).not.toBeInTheDocument()
+  })
+
+  it('an unpicked role shows the choose-role link', () => {
+    useAuthMock.mockReturnValue(authState({ id: 'u4', email: 'n@example.com', name: 'Nia', role: '' }))
+
+    renderHeader()
+
+    expect(screen.getByRole('link', { name: 'Choose role' })).toHaveAttribute('href', '/choose-role')
   })
 })

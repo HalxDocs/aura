@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth, type Mode } from '@/contexts/AuthContext'
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { initials } from '@/lib/dashboard-utils'
 import '@/styles/aura-header.css'
 
@@ -19,24 +19,16 @@ interface AppHeaderProps {
 }
 
 /**
- * Shared dashboard header: brand, mode-aware links, the candidate/recruiter
- * mode switcher, and the user chip. Every dashboard-style page used to copy
- * this markup; mode switching (Upwork-style) is client-side — setMode flips
- * localStorage + context state and routes to that mode's home, no API call.
+ * Shared dashboard header: brand, role-appropriate links, and the user chip.
+ * Roles are exclusive and live on the account, so the links derive from
+ * user.role — no client-side mode state. Switching happens through the role
+ * picker (/choose-role?switch=1), where the server enforces the usage locks.
  */
 export function AppHeader({ active, hideLinks }: AppHeaderProps) {
-  const { user, mode, setMode, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   const isAdmin = user?.role === 'admin'
-  // Dual roles: admin, or anyone holding the one-way is_recruiter grant.
-  const canRecruit = isAdmin || user?.role === 'recruiter' || !!user?.is_recruiter
-
-  const switchTo = (next: Mode) => {
-    if (next === mode) return
-    setMode(next)
-    navigate(next === 'recruiter' ? '/recruiter' : '/dashboard')
-  }
+  const isRecruiter = user?.role === 'recruiter' || isAdmin
 
   return (
     <nav className="nav aura-app-header" aria-label="Primary">
@@ -46,24 +38,25 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
         </Link>
         {!hideLinks && (
           <div className="nav-links">
-            <Link to="/dashboard" className={active === 'dashboard' ? 'active' : undefined}>Dashboard</Link>
-            <Link to="/interview" className={active === 'new-interview' ? 'active' : undefined}>New interview</Link>
-            <Link to="/my-interviews" className={active === 'my-interviews' ? 'active' : undefined}>My interviews</Link>
-            {canRecruit ? (
+            {isRecruiter ? (
               <Link to="/recruiter" className={active === 'recruiter' ? 'active' : undefined}>Recruiter</Link>
             ) : (
-              // Flag-less candidates: the grant path still exists (Landing's
-              // "Switch role"), but only reachable from there — keep an
-              // affordance in every dashboard header too.
-              user?.role === 'candidate' && (
-                <Link to="/choose-role?switch=1">Become a recruiter</Link>
-              )
+              <>
+                <Link to="/dashboard" className={active === 'dashboard' ? 'active' : undefined}>Dashboard</Link>
+                <Link to="/interview" className={active === 'new-interview' ? 'active' : undefined}>New interview</Link>
+                <Link to="/my-interviews" className={active === 'my-interviews' ? 'active' : undefined}>My interviews</Link>
+              </>
             )}
             {isAdmin && (
               <Link to="/admin" className={active === 'admin' ? 'active' : undefined}>Admin</Link>
             )}
+            {!isAdmin && user && (
+              // Server-enforced usage locks decide whether switching is
+              // actually allowed; the link is just the doorway to the picker.
+              <Link to="/choose-role?switch=1">Switch role</Link>
+            )}
             <Link
-              to={mode === 'recruiter' ? '/profile/recruiter' : '/profile/candidate'}
+              to={isRecruiter ? '/profile/recruiter' : '/profile/candidate'}
               className={active === 'profile' ? 'active' : undefined}
             >
               Profile
@@ -71,27 +64,6 @@ export function AppHeader({ active, hideLinks }: AppHeaderProps) {
           </div>
         )}
         <div className="nav-cta">
-          {/* Toggle buttons, not tabs: there is no tabpanel for tab semantics. */}
-          {canRecruit && (
-            <div className="nav-mode" role="group" aria-label="Active role">
-              <button
-                type="button"
-                aria-pressed={mode === 'candidate'}
-                className={mode === 'candidate' ? 'active' : undefined}
-                onClick={() => switchTo('candidate')}
-              >
-                Candidate
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === 'recruiter'}
-                className={mode === 'recruiter' ? 'active' : undefined}
-                onClick={() => switchTo('recruiter')}
-              >
-                Recruiter
-              </button>
-            </div>
-          )}
           {user?.role === '' && <Link to="/choose-role">Choose role</Link>}
           {user ? (
             <>

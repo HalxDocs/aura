@@ -22,7 +22,7 @@ from langfuse import propagate_attributes
 
 from agent.parser import agent as interview_parser_agent
 from agent.profile_parser import agent as profile_parser_agent
-from api.deps import get_current_user, require_recruiter, _WorkerUser
+from api.deps import get_current_user, require_recruiter, require_candidate, _WorkerUser
 from api.rate_limit import limiter
 from api.uploads import read_upload_capped
 from db.crud import (
@@ -133,6 +133,7 @@ def _candidate_fields(payload: CandidateProfileIn) -> dict:
 async def read_candidate_profile(request: Request, user=Depends(get_current_user)):
     """The caller's candidate profile; empty defaults when never saved."""
     _reject_worker(user)
+    require_candidate(user)
     async with async_session() as db:
         profile = await get_candidate_profile(db, user.id)
     if profile is None:
@@ -145,6 +146,7 @@ async def read_candidate_profile(request: Request, user=Depends(get_current_user
 async def save_candidate_profile(request: Request, payload: CandidateProfileIn, user=Depends(get_current_user)):
     """Create or update the caller's candidate profile."""
     _reject_worker(user)
+    require_candidate(user)
     async with async_session() as db:
         profile = await upsert_candidate_profile(db, user.id, **_candidate_fields(payload))
     return CandidateProfileOut.from_row(profile)
@@ -169,6 +171,7 @@ async def upload_profile_resume(
     row is created by the failed attempt.
     """
     _reject_worker(user)
+    require_candidate(user)
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -269,6 +272,7 @@ async def start_interview_from_profile(request: Request, user=Depends(get_curren
     standard /plan → /token voice flow works unchanged.
     """
     _reject_worker(user)
+    require_candidate(user)
     # MinIO I/O is blocking — keep it off the event loop.
     pdf_bytes = await asyncio.to_thread(get_resume, user.id)
     if not pdf_bytes:

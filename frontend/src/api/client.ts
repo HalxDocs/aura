@@ -170,8 +170,6 @@ export interface AuthUser {
   email: string;
   name: string;
   role: 'admin' | 'candidate' | 'recruiter' | '';
-  /** One-way recruiter capability — a dual-role user keeps it when picking candidate mode. */
-  is_recruiter?: boolean;
   avatar_url?: string | null;
 }
 

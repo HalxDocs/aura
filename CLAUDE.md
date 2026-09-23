@@ -157,8 +157,10 @@ Add a wrapper there rather than calling `api.get` from a page. Normalize error m
 display with `apiErrorMessage(error, fallback)`, which already handles string `detail`, the
 422 `{message, errors[]}` shape, and slowapi's 429 body.
 
-**`aura_active_role` (localStorage) is UI mode, not permission.** `AuthContext` resolves it
-against the server-provided `is_recruiter` capability and deletes stale preferences. Route
+**Roles are exclusive and live on the account** (`user.role`: `''` unpicked, `candidate`,
+`recruiter`, `admin`). There is no client-side mode state — links and guards derive from
+`user.role`; the "Switch role" link opens `/choose-role?switch=1` and the **server** enforces
+the usage lock (a recruiter with invites or a candidate with sessions cannot switch). Route
 guards in `components/auth/ProtectedRoute.tsx` are cosmetic — the backend re-checks every
 request.
 
@@ -245,7 +247,7 @@ database, sending email, deleting rooms) without being asked.
 | `backend/api/main.py` | App wiring, startup migrations, upload/plan/token/report/invite endpoints |
 | `backend/api/deps.py` | Auth resolution and the authorization gates |
 | `backend/utils/config.py` | Single source of truth for secrets and model selection |
-| `backend/db/models.py` | The six tables; read the comments on `InterviewInvite` and `User.is_recruiter` |
+| `backend/db/models.py` | The six tables; read the comments on `InterviewInvite` and `User.role` |
 | `backend/db/crud.py` | Concurrency-safe claim/redeem logic |
 | `backend/models/schemas.py` | Every request/response contract |
 | `frontend/src/api/client.ts` | All HTTP + the types shared with the backend |

@@ -291,21 +291,56 @@ async def list_all_sessions(
     return list(result.scalars().all())
 
 
-async def set_user_role(db: AsyncSession, user_id: str, role: str) -> User | None:
-    """Set a user's role (candidate/recruiter role picker). Admins are excluded upstream.
+async def count_invites_for_recruiter(db: AsyncSession, recruiter_id: str) -> int:
+    """All invites the user has ever created (any status) — the recruiter-side usage lock unit."""
+    result = await db.execute(
+        select(func.count()).select_from(InterviewInvite).where(InterviewInvite.recruiter_id == recruiter_id)
+    )
+    return int(result.scalar_one())
 
-    ``role`` records the last-picked starting mode. Choosing ``recruiter``
-    additionally grants the one-way ``is_recruiter`` capability; choosing
-    ``candidate`` later never revokes it, so a dual-role user can always get
-    back to recruiter mode.
+
+async def count_sessions_for_user(db: AsyncSession, user_id: str) -> int:
+    """All interview sessions the user owns (any status) — the candidate-side
+    usage lock unit, also applied to an unpicked role's recruiter pick."""
+    result = await db.execute(
+        select(func.count()).select_from(InterviewSession).where(InterviewSession.user_id == user_id)
+    )
+    return int(result.scalar_one())
+
+
+async def set_user_role(db: AsyncSession, user_id: str, role: str) -> User | None | str:
+    """Set the user's exclusive role (candidate/recruiter role picker). Admins are excluded upstream.
+
+    Roles are mutually exclusive: this overwrites whatever string was there.
+    Switching away from a role that has been *used* is refused — a recruiter
+    with invites on record or a candidate with interview sessions keeps that
+    role, so ownership history (invites, sessions, reports) always matches
+    the role that created it. The candidate side of an *unpicked* role is
+    locked against the recruiter pick too: the candidate flow allows taking
+    practice interviews before the picker runs (``require_candidate`` passes
+    ``""``), and those sessions must stay attached to a candidate-side
+    account — picking ``candidate`` still works, since it matches the
+    history. Picking the current role again is an idempotent no-op. Returns
+    the updated user, the ``ROLE_LOCKED`` sentinel when the switch is
+    refused, or None when the user does not exist.
     """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         return None
+    if user.role == role:
+        return user
+    if user.role == "recruiter":
+        used = await count_invites_for_recruiter(db, user.id)
+    elif user.role == "candidate" or role == "recruiter":
+        used = await count_sessions_for_user(db, user.id)
+    else:
+        # Unpicked role picking candidate: its sessions (if any) match the
+        # role being picked, so nothing locks.
+        used = 0
+    if used:
+        return ROLE_LOCKED
     user.role = role
-    if role == "recruiter":
-        user.is_recruiter = True
     await db.commit()
     await db.refresh(user)
     return user
@@ -400,6 +435,10 @@ CLAIMED = "claimed"
 ALREADY_CLAIMED = "already_claimed"
 CANCELLED = "cancelled"
 EXPIRED = "expired"
+# set_user_role sentinel: the switch was refused because the current role has
+# been used (invites or sessions on record). Same convention as the redeem
+# statuses above — return a status, let the endpoint pick the HTTP response.
+ROLE_LOCKED = "role_locked"
 QUOTA_EXCEEDED = "quota_exceeded"
 
 

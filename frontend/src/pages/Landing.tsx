@@ -13,17 +13,20 @@ const ORB_STATES = [
 export function Landing() {
   usePageMeta("Aura — AI Interviewer: Real-Time Voice Interviews", { description: "Upload a resume, have a live voice interview with an AI interviewer, and get a structured hiring report with scores and a recommendation.", canonical: window.location.origin + "/" })
   const navigate = useNavigate()
-  const { user, mode, loading } = useAuth()
+  const { user, loading } = useAuth()
   const signedIn = !!user && !loading
 
   // The marketing page is anonymous-only: app links grafted into it used to
   // compete with the sales CTAs (and signed-in users landed on a sales pitch
   // instead of their workspace). Wait for auth to resolve so a refresh with a
   // valid token doesn't flash the marketing page before the redirect.
+  // Roles are exclusive and live on the account: admins keep recruiter access
+  // so they land on /recruiter too.
+  const homeByRole = user?.role === 'recruiter' || user?.role === 'admin' ? '/recruiter' : '/dashboard'
   useEffect(() => {
     if (!signedIn) return
-    navigate(mode === 'recruiter' ? '/recruiter' : '/dashboard', { replace: true })
-  }, [signedIn, mode, navigate])
+    navigate(homeByRole, { replace: true })
+  }, [signedIn, homeByRole, navigate])
 
   const pageRef = useRef<HTMLDivElement>(null)
   const [orbIdx, setOrbIdx] = useState(0)

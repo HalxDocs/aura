@@ -10,18 +10,17 @@ from api.main import app
 from api.deps import get_current_user, _WorkerUser
 from db.database import async_session
 from db.crud import create_invite, get_candidate_profile, upsert_candidate_profile
-from db.models import User
+from db.models import User, InterviewSession
 from models.schemas import ParsedResumeProfile
 
 
 class _StubUser:
     def __init__(self, id="test-user-id", email="test@example.com", name="Test User",
-                 role="admin", is_recruiter=False):
+                 role="admin"):
         self.id = id
         self.email = email
         self.name = name
         self.role = role
-        self.is_recruiter = is_recruiter
         self.avatar_url = None
 
 
@@ -53,11 +52,11 @@ def _client():
                        headers={"X-Forwarded-For": ip})
 
 
-async def _make_user(role="candidate", is_recruiter=False):
+async def _make_user(role="candidate"):
     n = next(_user_counter)
     stub = _StubUser(
         id=f"profile-user-{n}", email=f"profile-{n}@example.com",
-        name="Profile Pat", role=role, is_recruiter=is_recruiter,
+        name="Profile Pat", role=role,
     )
     async with async_session() as db:
         existing = await db.get(User, stub.id)
@@ -69,7 +68,6 @@ async def _make_user(role="candidate", is_recruiter=False):
                 provider="google",
                 provider_id=f"{stub.id}-provider-id",
                 role=role,
-                is_recruiter=is_recruiter,
             ))
             await db.commit()
     override_user(stub)
@@ -414,7 +412,7 @@ async def test_interview_from_profile_without_resume_404():
 
 @pytest.mark.asyncio
 async def test_recruiter_profile_roundtrip():
-    await _make_user(role="recruiter", is_recruiter=True)
+    await _make_user(role="recruiter")
     async with _client() as ac:
         put = await ac.put("/profile/recruiter", json={
             "company_name": "Acme Robotics",
@@ -431,43 +429,106 @@ async def test_recruiter_profile_roundtrip():
 
 @pytest.mark.asyncio
 async def test_recruiter_profile_forbidden_for_plain_candidate():
-    await _make_user(role="candidate", is_recruiter=False)
+    await _make_user(role="candidate")
     async with _client() as ac:
         resp = await ac.get("/profile/recruiter")
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_recruiter_profile_allowed_via_flag_only():
-    """A user who became a recruiter while role stayed 'candidate' passes the gate."""
-    await _make_user(role="candidate", is_recruiter=True)
+async def test_role_pick_is_idempotent():
+    """Picking the current role again succeeds and does not change anything."""
+    await _make_user(role="recruiter")
     async with _client() as ac:
-        resp = await ac.get("/profile/recruiter")
+        resp = await ac.post("/auth/role", json={"role": "recruiter"})
     assert resp.status_code == 200
-    assert resp.json() == {"company_name": "", "job_title": "", "company_website": None, "company_location": ""}
-
-
-# ---------------------------------------------------------------- dual-role grant
+    assert resp.json()["user"]["role"] == "recruiter"
 
 
 @pytest.mark.asyncio
-async def test_role_picker_grants_persistent_recruiter_flag():
-    user = await _make_user(role="", is_recruiter=False)
+async def test_unused_recruiter_can_switch_to_candidate():
+    user = await _make_user(role="recruiter")
     async with _client() as ac:
-        first = await ac.post("/auth/role", json={"role": "recruiter"})
-        assert first.status_code == 200
-        assert first.json()["user"]["is_recruiter"] is True
-
-        # Picking candidate later must NOT un-grant recruiter access.
-        second = await ac.post("/auth/role", json={"role": "candidate"})
-        assert second.status_code == 200
-        data = second.json()
-        assert data["user"]["role"] == "candidate"
-        assert data["user"]["is_recruiter"] is True
-
+        resp = await ac.post("/auth/role", json={"role": "candidate"})
+    assert resp.status_code == 200
+    assert resp.json()["user"]["role"] == "candidate"
     async with async_session() as db:
         row = await db.get(User, user.id)
-    assert row.is_recruiter is True
+    assert row.role == "candidate"
+
+
+@pytest.mark.asyncio
+async def test_used_recruiter_cannot_switch_to_candidate():
+    """Any invite on record (even cancelled) locks the recruiter role."""
+    user = await _make_user(role="recruiter")
+    async with async_session() as db:
+        await create_invite(
+            db, recruiter_id=user.id, title="T", context=None,
+            questions=["Q1?"], token="lock-rec-token",
+            expires_in_hours=1,
+        )
+    async with _client() as ac:
+        resp = await ac.post("/auth/role", json={"role": "candidate"})
+    assert resp.status_code == 409
+    assert "recruiter" in resp.json()["detail"]
+    async with async_session() as db:
+        row = await db.get(User, user.id)
+    assert row.role == "recruiter"
+
+
+@pytest.mark.asyncio
+async def test_used_candidate_cannot_switch_to_recruiter():
+    """Any interview session on record locks the candidate role."""
+    user = await _make_user(role="candidate")
+    async with async_session() as db:
+        db.add(InterviewSession(
+            id=f"lock-session-{user.id}", user_id=user.id,
+            candidate_name="P", plan_json='{"title":"t"}',
+        ))
+        await db.commit()
+    async with _client() as ac:
+        resp = await ac.post("/auth/role", json={"role": "recruiter"})
+    assert resp.status_code == 409
+    assert "candidate" in resp.json()["detail"]
+    async with async_session() as db:
+        row = await db.get(User, user.id)
+    assert row.role == "candidate"
+
+
+@pytest.mark.asyncio
+async def test_pre_pick_sessions_block_recruiter_pick():
+    """Sessions taken before the picker runs (unpicked role) lock the
+    recruiter pick — those interviews must stay candidate-side."""
+    user = await _make_user(role="")
+    async with async_session() as db:
+        db.add(InterviewSession(
+            id=f"lock-session-{user.id}", user_id=user.id,
+            candidate_name="P", plan_json='{"title":"t"}',
+        ))
+        await db.commit()
+    async with _client() as ac:
+        resp = await ac.post("/auth/role", json={"role": "recruiter"})
+    assert resp.status_code == 409
+    assert "can't pick the recruiter role" in resp.json()["detail"]
+    async with async_session() as db:
+        row = await db.get(User, user.id)
+    assert row.role == ""
+
+
+@pytest.mark.asyncio
+async def test_pre_pick_sessions_still_allow_candidate_pick():
+    """An unpicked role with sessions can still formally pick candidate."""
+    user = await _make_user(role="")
+    async with async_session() as db:
+        db.add(InterviewSession(
+            id=f"lock-session-{user.id}", user_id=user.id,
+            candidate_name="P", plan_json='{"title":"t"}',
+        ))
+        await db.commit()
+    async with _client() as ac:
+        resp = await ac.post("/auth/role", json={"role": "candidate"})
+    assert resp.status_code == 200
+    assert resp.json()["user"]["role"] == "candidate"
 
 
 # ---------------------------------------------------------------- invite branding
@@ -475,7 +536,7 @@ async def test_role_picker_grants_persistent_recruiter_flag():
 
 @pytest.mark.asyncio
 async def test_invite_preview_shows_recruiter_company():
-    recruiter = await _make_user(role="recruiter", is_recruiter=True)
+    recruiter = await _make_user(role="recruiter")
     async with async_session() as db:
         await create_invite(
             db, recruiter_id=recruiter.id, title="Backend role", context=None,

@@ -53,15 +53,27 @@ def require_admin(user) -> None:
 
 
 def require_recruiter(user) -> None:
-    """Recruiter capability gate.
+    """Recruiter gate.
 
-    Dual roles: a user qualifies via the one-way ``is_recruiter`` grant, the
-    legacy ``role == "recruiter"`` string (rows created before the flag
-    existed, and test stubs), or being an admin. Lives next to
-    ``require_admin`` so both the invites endpoints and the profiles router
-    can share it without a circular import through ``api.main``.
+    Roles are exclusive, so ``role`` is the whole story: a user is a
+    recruiter, or an admin (admins keep recruiter access to operate the
+    app). Lives next to ``require_admin`` so both the invites endpoints and
+    the profiles router can share it without a circular import through
+    ``api.main``.
     """
-    role = getattr(user, "role", None)
-    if role == "admin" or role == "recruiter" or getattr(user, "is_recruiter", False):
+    if getattr(user, "role", None) in ("admin", "recruiter"):
         return
     raise HTTPException(403, "Recruiter access required")
+
+
+def require_candidate(user) -> None:
+    """Candidate gate, the mirror of require_recruiter.
+
+    Recruiters are rejected now that roles are exclusive. An unpicked role
+    ("") still passes: the candidate flow allows uploading a resume before
+    the role picker ever runs, and forcing a pick first would break that
+    flow. Admins pass to keep operating every surface as today.
+    """
+    if getattr(user, "role", None) in ("", "candidate", "admin"):
+        return
+    raise HTTPException(403, "Candidate access required")

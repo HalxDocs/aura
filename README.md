@@ -41,13 +41,16 @@ conversation. Monthly interviews per recruiter are capped (`RECRUITER_MONTHLY_LI
 control AI spend, and the link itself expires after a validity window the recruiter picks
 (24 hours by default, `DEFAULT_INVITE_EXPIRY_HOURS`).
 
-**One account, both roles:** any account can act as a candidate, and becoming a recruiter is
-a one-time grant (role picker or the candidate/recruiter switcher in the header — no approval
-flow). Each side has its own profile: candidates get a job-board style profile
-(headline, skills, experience, education, links) that can be **autofilled by uploading their
-resume**, and recruiters list their company so candidates see who they're interviewing with.
-A candidate with a saved resume can start practice interviews in one click without
-re-uploading.
+**One account, one role:** every account is either a candidate or a recruiter — never both
+(roles were dual-mode before; the `is_recruiter` flag existed then and existing grant holders
+were migrated to `role = recruiter`). You pick a role on first login, and can switch later
+only while the current role is unused — a recruiter with no invites created, or a candidate
+with no interviews taken. Once a role has history, it's locked so reports and invites always
+belong to the role that made them. Each role has its own profile: candidates get a job-board
+style profile (headline, skills, experience, education, links) that can be **autofilled by
+uploading their resume**, and recruiters list their company so candidates see who they're
+interviewing with. A candidate with a saved resume can start practice interviews in one
+click without re-uploading.
 - **Worker** — LiveKit VoicePipelineAgent with Pydantic AI reasoning agents
 - **AI Models** — GPT-4o-mini (voice), Gemini 2.0 Flash via OpenRouter (reasoning), Deepgram Nova-3 (STT), Fish Audio S2.1 Pro Free (TTS). Every model is env-configurable — see the Environment Variables table.
 

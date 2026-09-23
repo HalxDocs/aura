@@ -1,5 +1,4 @@
 import uuid
-import sqlalchemy as sa
 from datetime import datetime, timezone
 from sqlalchemy import String, Text, DateTime, ForeignKey, Index, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,14 +22,12 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     provider: Mapped[str] = mapped_column(String(20))  # "google" | "github" | "email"
     provider_id: Mapped[str] = mapped_column(String(255))
-    # Empty until the user picks "candidate" or "recruiter" on the role picker;
-    # "admin" is granted via ADMIN_EMAIL promotion on login. Kept as the
-    # last-picked starting mode; the durable capability is is_recruiter below.
+    # Exclusive role: "" until the user picks "candidate" or "recruiter" on
+    # the role picker, then exactly one of the two (switching is blocked once
+    # the chosen side has been used — see crud.set_user_role). "admin" is
+    # granted only via ADMIN_EMAIL promotion on login and is never
+    # picker-selectable.
     role: Mapped[str] = mapped_column(String(20), default="")
-    # One-way recruiter capability grant (Upwork-style dual roles): once set,
-    # picking the candidate role later never un-grants it. role stays a plain
-    # string so every existing check keeps its meaning.
-    is_recruiter: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa.false())
     # Email/password auth (None for OAuth-only accounts). OAuth emails are
     # provider-verified, so those accounts are trusted immediately.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)

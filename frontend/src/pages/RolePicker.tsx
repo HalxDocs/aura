@@ -1,24 +1,24 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { setUserRole } from '@/api/client'
+import { setUserRole, apiErrorMessage } from '@/api/client'
 import { PageShell } from '@/components/layout/PageShell'
 import '@/styles/aura-pre.css'
 import { usePageMeta } from '@/hooks/use-page-meta';
 
 /**
- * Starting-mode picker (first login) and mode switch via ``?switch=1``.
+ * Role picker (first login) and role switch via ``?switch=1``.
  *
  * New users (role ``''``) land here from the OAuth callback and from the
  * email/password sign-in. Existing users reach it via ``?switch=1``; without
  * that flag they are sent back, so the page cannot be used to bounce a
- * settled user around the app. Picking "recruiter" permanently grants the
- * recruiter capability; the header's mode switcher handles everyday toggling
- * without this API call.
+ * settled user around the app. Roles are exclusive — the pick replaces the
+ * old role, and the server refuses a switch once the current side has been
+ * used (invites created / interviews taken).
  */
 export function RolePicker() {
   usePageMeta("Choose your role — Aura")
-  const { user, setAuth, setMode } = useAuth()
+  const { user, setAuth } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const switching = params.get('switch') === '1'
@@ -39,15 +39,12 @@ export function RolePicker() {
     try {
       const data = await setUserRole(role)
       setAuth(data.token, { ...data.user, role: data.user.role as 'candidate' | 'recruiter', avatar_url: data.user.avatar_url ?? undefined })
-      // The picked mode is the active mode: setAuth re-resolves from the
-      // persisted key, which may still hold a stale preference from a
-      // previous session — override it with the explicit choice.
-      setMode(role)
       const returnTo = sessionStorage.getItem('aura_return_to')
       sessionStorage.removeItem('aura_return_to')
       navigate(returnTo || (role === 'recruiter' ? '/recruiter' : '/interview'), { replace: true })
-    } catch {
-      setError('Could not save your choice. Please try again.')
+    } catch (err) {
+      // A refused switch (409) carries the reason from the server.
+      setError(apiErrorMessage(err, 'Could not save your choice. Please try again.'))
       setBusy(null)
     }
   }
@@ -58,12 +55,12 @@ export function RolePicker() {
     <PageShell hideLinks>
       <div className="aura-pre-page">
         <div className="container" style={{ maxWidth: 760 }}>
-        <span className="eyebrow"><span className="dot" aria-hidden="true"></span>{switching ? 'Switch mode' : 'Welcome to Aura'}</span>
+        <span className="eyebrow"><span className="dot" aria-hidden="true"></span>{switching ? 'Switch role' : 'Welcome to Aura'}</span>
         <h1 className="h1">How will you <em>use Aura?</em></h1>
         <p className="lede">
           {switching
-            ? 'Pick a mode. Switching back takes one click from the header.'
-            : 'Pick a starting point — you can use both sides anytime from the header. Choosing Recruiter grants recruiter access for good.'}
+            ? 'Pick your role. This replaces your current role — switching is only possible while your current role has no interviews or invites on record.'
+            : "Pick the role that fits you. One role per account — you can switch later as long as your role hasn't been used yet."}
         </p>
 
         {error && (
@@ -87,7 +84,7 @@ export function RolePicker() {
                 >
                   {busy === 'candidate'
                     ? <><span className="spinner" /> Setting up…</>
-                    : current === 'candidate' ? 'Current mode' : "I'm a candidate"}
+                    : current === 'candidate' ? 'Current role' : "I'm a candidate"}
                 </button>
               </div>
             </div>
@@ -109,7 +106,7 @@ export function RolePicker() {
                 >
                   {busy === 'recruiter'
                     ? <><span className="spinner" /> Setting up…</>
-                    : current === 'recruiter' ? 'Current mode' : "I'm a recruiter"}
+                    : current === 'recruiter' ? 'Current role' : "I'm a recruiter"}
                 </button>
               </div>
             </div>
